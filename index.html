@@ -27,6 +27,8 @@
     </script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         ::-webkit-scrollbar {
             width: 6px;
@@ -51,7 +53,7 @@
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
                 
-                <!-- Brand Logo & Title (Mobile Optimized) -->
+                <!-- Brand Logo & Title -->
                 <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
                     <div class="bg-gradient-to-tr from-brand-600 to-emerald-400 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-emerald-950/50">
                         <i class="fa-solid fa-trophy text-slate-950 text-base sm:text-xl font-bold"></i>
@@ -82,8 +84,13 @@
                     </button>
                 </nav>
 
-                <!-- User Quick Auth Status -->
+                <!-- User Quick Auth & Cloud Status -->
                 <div class="flex items-center space-x-2">
+                    <div id="cloud-badge" class="hidden sm:flex items-center space-x-1 text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono" title="Connected to Supabase Realtime Database">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Cloud Live</span>
+                    </div>
+
                     <div id="user-badge" class="hidden items-center space-x-2 bg-slate-800/80 border border-slate-700/60 px-2.5 py-1.5 rounded-full">
                         <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-brand-500/20 border border-brand-500/40 flex items-center justify-center text-brand-500 text-xs font-bold" id="user-avatar">
                             U
@@ -100,7 +107,7 @@
 
             </div>
 
-            <!-- Mobile Sub-Navigation Bar (Shown on small screens when logged in) -->
+            <!-- Mobile Sub-Navigation Bar -->
             <div id="mobile-nav" class="hidden md:hidden border-t border-slate-800/80 py-2 flex justify-around">
                 <button onclick="switchTab('predict')" id="mobile-tab-predict" class="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 text-slate-300">
                     <i class="fa-solid fa-list-check text-brand-500"></i>
@@ -130,7 +137,7 @@
                     <i class="fa-solid fa-lock"></i>
                 </div>
                 <h2 class="text-xl sm:text-2xl font-bold text-white">Platform Login</h2>
-                <p class="text-xs sm:text-sm text-slate-400 mt-1">Enter your account credentials to continue</p>
+                <p class="text-xs sm:text-sm text-slate-400 mt-1">Enter your credentials to access your account</p>
             </div>
 
             <div id="login-error" class="hidden mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs flex items-center space-x-2">
@@ -291,7 +298,7 @@
                         <span>Admin Console</span>
                         <span class="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded font-mono">ADMIN</span>
                     </h1>
-                    <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Manage competitions, gameweeks, matches, odds, deadlines, and tipster user accounts.</p>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Manage competitions, gameweeks, match odds, FT scores, and tipster user accounts.</p>
                 </div>
             </div>
 
@@ -311,42 +318,51 @@
             <!-- ADMIN TAB 1: Manage Gameweeks & Matches -->
             <div id="admin-sub-matches" class="space-y-4 sm:space-y-6">
                 <!-- Selection & Gameweek Creator Controls -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-end">
-                    <div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 items-end">
+                    <div class="md:col-span-1">
                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Active Competition</label>
                         <select id="admin-comp-select" onchange="onAdminCompChange()" class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
                         </select>
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Active Gameweek</label>
+                    <div class="md:col-span-1">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Active Gameweek</label>
+                            <button onclick="renameGameweekPrompt()" class="text-[10px] text-amber-400 hover:underline font-semibold" title="Rename this Gameweek"><i class="fa-solid fa-pen-to-square"></i> Rename</button>
+                        </div>
                         <select id="admin-gw-select" onchange="renderAdminMatches()" class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
                         </select>
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Gameweek Deadline</label>
                         <input type="datetime-local" id="admin-deadline-input" class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
                     </div>
 
-                    <div>
-                        <button onclick="updateGameweekDeadline()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl transition text-xs sm:text-sm flex items-center justify-center space-x-2">
+                    <div class="md:col-span-1">
+                        <button onclick="updateGameweekDeadline()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl transition text-xs sm:text-sm flex items-center justify-center space-x-1.5">
                             <i class="fa-solid fa-clock"></i>
                             <span>Save Deadline</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Create New Gameweek Modal/Inline Action -->
+                <!-- Create / Rename Gameweek Bar -->
                 <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                        <h4 class="font-bold text-xs sm:text-sm text-white">Need another round for this competition?</h4>
-                        <p class="text-[11px] sm:text-xs text-slate-400">Add Gameweeks continuously (e.g., Week 1, Week 2, Week 3...)</p>
+                        <h4 class="font-bold text-xs sm:text-sm text-white">Gameweek Quick Tools</h4>
+                        <p class="text-[11px] sm:text-xs text-slate-400">Add unlimited gameweeks or rename existing rounds to custom titles.</p>
                     </div>
-                    <button onclick="createNewGameweekPrompt()" class="bg-slate-800 hover:bg-slate-700 text-brand-500 border border-brand-500/30 px-3.5 py-2 rounded-xl font-bold text-xs transition flex items-center space-x-2 shrink-0">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>Add New Gameweek</span>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="renameGameweekPrompt()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 px-3 py-2 rounded-xl font-bold text-xs transition flex items-center space-x-1.5 shrink-0">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>Rename Active Week</span>
+                        </button>
+                        <button onclick="createNewGameweekPrompt()" class="bg-slate-800 hover:bg-slate-700 text-brand-500 border border-brand-500/30 px-3 py-2 rounded-xl font-bold text-xs transition flex items-center space-x-1.5 shrink-0">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Add New Gameweek</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Matches Form List -->
@@ -354,7 +370,7 @@
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
                         <div>
                             <h3 class="font-bold text-white text-base sm:text-lg" id="admin-gw-title-heading">Matches Schedule & Result Settler</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">Edit fixtures, odds, or set results (FT scores calculate outcomes automatically).</p>
+                            <p class="text-xs text-slate-400 mt-0.5">Edit fixtures, decimal odds, or set fulltime scores (points recalculate automatically).</p>
                         </div>
                         <button onclick="addNewMatchToGameweek()" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold px-3 py-2 rounded-xl border border-slate-700 transition flex items-center space-x-1.5 self-start sm:self-auto">
                             <i class="fa-solid fa-plus text-brand-500"></i>
@@ -464,6 +480,19 @@
     </div>
 
     <script>
+        // --- SUPABASE CLOUD CONFIGURATION ---
+        const SUPABASE_URL = "https://mtsfyurefpcomognpgqm.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10c2Z5dXJlZnBjb21vZ25wZ3FtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3OTg0MTEsImV4cCI6MjEwNDM3NDQxMX0.Rnxd19LINUBTfdDkGXqpd5vhpgV4dRW2YE8Gy59gDVk";
+        
+        let supabaseClient = null;
+        if (window.supabase) {
+            try {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (e) {
+                console.warn("Supabase initialization error:", e);
+            }
+        }
+
         const initialCompetitions = [
             { id: "comp-pl-26", name: "Premier League 2026/2027", season: "2026/2027" },
             { id: "comp-cl-26", name: "Champions League 2026/2027", season: "2026/2027" }
@@ -477,7 +506,6 @@
             { id: "u-4", username: "chris_p", password: "pass123", displayName: "Chris Odds", role: "user" }
         ];
 
-        // Sample Week 1 Matches (Completed & Settled with scores)
         const week1Matches = [
             { matchNum: 1, date: "2026-09-05T12:30", homeTeam: "Manchester Utd", awayTeam: "Manchester City", oddsHome: 2.40, oddsDraw: 3.50, oddsAway: 2.00, homeScore: 0, awayScore: 2, result: "2" },
             { matchNum: 2, date: "2026-09-05T15:00", homeTeam: "Arsenal", awayTeam: "Chelsea", oddsHome: 1.85, oddsDraw: 3.60, oddsAway: 4.20, homeScore: 3, awayScore: 1, result: "1" },
@@ -491,7 +519,6 @@
             { matchNum: 10, date: "2026-09-07T20:00", homeTeam: "Sunderland", awayTeam: "Leeds United", oddsHome: 2.70, oddsDraw: 3.10, oddsAway: 2.60, homeScore: 0, awayScore: 0, result: "X" }
         ];
 
-        // Sample Week 2 Matches (Upcoming & Open for Predictions)
         const week2Matches = [
             { matchNum: 1, date: "2026-09-12T12:30", homeTeam: "Chelsea", awayTeam: "Liverpool", oddsHome: 2.80, oddsDraw: 3.40, oddsAway: 2.30, homeScore: "", awayScore: "", result: "" },
             { matchNum: 2, date: "2026-09-12T15:00", homeTeam: "Manchester City", awayTeam: "Arsenal", oddsHome: 1.95, oddsDraw: 3.50, oddsAway: 3.80, homeScore: "", awayScore: "", result: "" },
@@ -507,7 +534,6 @@
             { matchNum: 12, date: "2026-09-14T20:00", homeTeam: "Ipswich Town", awayTeam: "Sunderland", oddsHome: 2.50, oddsDraw: 3.15, oddsAway: 2.75, homeScore: "", awayScore: "", result: "" }
         ];
 
-        // Gameweek Data structure per competition
         const initialGameweeks = {
             "comp-pl-26": [
                 { id: "gw-pl-1", name: "Week 1", deadline: "2026-09-05T12:00", matches: week1Matches },
@@ -518,16 +544,11 @@
             ]
         };
 
-        // Seeded predictions
         const initialPredictions = {
             "comp-pl-26": {
                 "gw-pl-1": {
                     "u-1": { 1: "2", 2: "1", 3: "1", 4: "X", 5: "1", 6: "2", 7: "1", 8: "X", 9: "1", 10: "X" },
-                    "u-2": { 1: "1", 2: "1", 3: "1", 4: "2", 5: "1", 6: "1", 7: "X", 8: "1", 9: "X", 10: "1" },
-                    "u-3": { 1: "2", 2: "X", 3: "1", 4: "X", 5: "2", 6: "2", 7: "1", 8: "X", 9: "1", 10: "2" }
-                },
-                "gw-pl-2": {
-                    "u-1": { 1: "2", 2: "1", 3: "1", 4: "X", 5: "1", 6: "1", 7: "X", 8: "1", 9: "2", 10: "1", 11: "X", 12: "1" }
+                    "u-2": { 1: "1", 2: "1", 3: "1", 4: "2", 5: "1", 6: "1", 7: "X", 8: "1", 9: "X", 10: "1" }
                 }
             }
         };
@@ -543,33 +564,70 @@
             leaderboardMode: 'weekly'
         };
 
-        window.onload = function() {
+        window.onload = async function() {
+            // Load state from Cloud DB or LocalStorage
+            await fetchStateFromCloud();
+
+            // Always enforce exact Admin Credentials
+            let adminUser = state.users.find(u => u.role === 'admin');
+            if (!adminUser) {
+                adminUser = { id: "u-admin", username: "Sarvesh05", password: "1005", displayName: "Platform Admin", role: "admin" };
+                state.users.unshift(adminUser);
+            } else {
+                adminUser.username = "Sarvesh05";
+                adminUser.password = "1005";
+            }
+
+            // Always display clean login screen on initial load/refresh
+            showLoginView();
+        };
+
+        async function fetchStateFromCloud() {
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('app_state')
+                        .select('state_data')
+                        .eq('id', 'global_tipster_state')
+                        .single();
+
+                    if (data && data.state_data) {
+                        state = data.state_data;
+                        document.getElementById('cloud-badge').classList.remove('hidden');
+                        document.getElementById('cloud-badge').classList.add('flex');
+                        return;
+                    }
+                } catch(e) {
+                    console.warn("Could not fetch cloud state, using local fallback", e);
+                }
+            }
+
+            // Fallback to local storage
             const savedState = localStorage.getItem('tipster_multiweek_state');
             if (savedState) {
                 try {
                     state = JSON.parse(savedState);
                 } catch(e) {
-                    console.error("Could not parse saved state", e);
+                    console.error("Could not parse saved local state", e);
                 }
             }
+        }
 
-            // Always enforce updated admin credentials
-            const adminUser = state.users.find(u => u.role === 'admin');
-            if (adminUser) {
-                adminUser.username = "Sarvesh05";
-                adminUser.password = "1005";
-            }
-
-            // Check session login state
-            if (state.currentUser) {
-                loginUserById(state.currentUser.id);
-            } else {
-                showLoginView();
-            }
-        };
-
-        function saveState() {
+        async function saveState() {
             localStorage.setItem('tipster_multiweek_state', JSON.stringify(state));
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient
+                        .from('app_state')
+                        .upsert({ id: 'global_tipster_state', state_data: state });
+                    
+                    document.getElementById('cloud-badge').classList.remove('hidden');
+                    document.getElementById('cloud-badge').classList.add('flex');
+                } catch(e) {
+                    console.warn("Supabase save error:", e);
+                }
+            }
         }
 
         function handleLogin(e) {
@@ -591,21 +649,10 @@
             return false;
         }
 
-        function loginUserById(userId) {
-            const foundUser = state.users.find(u => u.id === userId);
-            if (foundUser) {
-                completeLoginProcess(foundUser);
-            } else {
-                showLoginView();
-            }
-        }
-
         function completeLoginProcess(foundUser) {
             state.currentUser = foundUser;
-            saveState();
 
             document.getElementById('login-error').classList.add('hidden');
-            
             document.getElementById('user-badge').classList.remove('hidden');
             document.getElementById('user-badge').classList.add('flex');
             document.getElementById('user-display-name').textContent = foundUser.displayName;
@@ -632,7 +679,6 @@
 
         function showLoginView() {
             state.currentUser = null;
-            saveState();
             hideAllViews();
             document.getElementById('view-login').classList.remove('hidden');
             document.getElementById('nav-links').classList.add('hidden');
@@ -710,7 +756,6 @@
 
             gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
 
-            // Automatically pick the first open/active Gameweek if available
             const now = new Date();
             const openGw = gwList.find(gw => new Date(gw.deadline) > now);
             if (openGw) {
@@ -756,7 +801,7 @@
                 }
             }
 
-            document.getElementById('user-predict-heading').textContent = `${activeGw.name} Match Predictions`;
+            document.getElementById('user-predict-heading').textContent = `${activeGw.name} Predictions`;
 
             const userPicks = (state.predictions[compId] && state.predictions[compId][gwId] && state.predictions[compId][gwId][state.currentUser.id]) || {};
 
@@ -869,9 +914,9 @@
             }
         }
 
-        function saveUserPredictions() {
-            saveState();
-            showToast("Your gameweek predictions have been saved!");
+        async function saveUserPredictions() {
+            await saveState();
+            showToast("Your predictions have been saved!");
         }
 
         function onLeaderboardCompChange() {
@@ -1089,7 +1134,7 @@
             });
         }
 
-        function createNewGameweekPrompt() {
+        async function createNewGameweekPrompt() {
             const compId = document.getElementById('admin-comp-select').value;
             const gwList = state.gameweeks[compId] || [];
             const nextGwNum = gwList.length + 1;
@@ -1119,11 +1164,31 @@
             if (!state.gameweeks[compId]) state.gameweeks[compId] = [];
             state.gameweeks[compId].push(newGameweek);
 
-            saveState();
+            await saveState();
             onAdminCompChange();
             document.getElementById('admin-gw-select').value = newGwId;
             renderAdminMatches();
             showToast(`Created new round '${gwName}'!`);
+        }
+
+        async function renameGameweekPrompt() {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwId = document.getElementById('admin-gw-select').value;
+            const gwList = state.gameweeks[compId] || [];
+            const activeGw = gwList.find(g => g.id === gwId);
+
+            if (!activeGw) return;
+
+            const newTitle = prompt("Enter new title for this Gameweek:", activeGw.name);
+            if (newTitle && newTitle.trim() !== "") {
+                activeGw.name = newTitle.trim();
+                await saveState();
+                populateCompetitionDropdowns();
+                onAdminCompChange();
+                document.getElementById('admin-gw-select').value = gwId;
+                renderAdminMatches();
+                showToast("Gameweek renamed successfully!");
+            }
         }
 
         function addNewMatchToGameweek() {
@@ -1161,7 +1226,7 @@
             }
         }
 
-        function updateGameweekDeadline() {
+        async function updateGameweekDeadline() {
             const compId = document.getElementById('admin-comp-select').value;
             const gwId = document.getElementById('admin-gw-select').value;
             const newDeadline = document.getElementById('admin-deadline-input').value;
@@ -1169,12 +1234,12 @@
             const activeGw = (state.gameweeks[compId] || []).find(g => g.id === gwId);
             if (activeGw) {
                 activeGw.deadline = newDeadline;
-                saveState();
+                await saveState();
                 showToast("Gameweek deadline saved!");
             }
         }
 
-        function saveAdminMatches() {
+        async function saveAdminMatches() {
             const compId = document.getElementById('admin-comp-select').value;
             const gwId = document.getElementById('admin-gw-select').value;
             const activeGw = (state.gameweeks[compId] || []).find(g => g.id === gwId);
@@ -1225,11 +1290,11 @@
                 }
             });
 
-            saveState();
+            await saveState();
             showToast("Gameweek matches & scores saved! Results recalculated.");
         }
 
-        function handleCreateCompetition(e) {
+        async function handleCreateCompetition(e) {
             e.preventDefault();
             const title = document.getElementById('new-comp-title').value;
             const season = document.getElementById('new-comp-season').value;
@@ -1260,9 +1325,29 @@
             document.getElementById('new-comp-title').value = '';
             document.getElementById('new-comp-season').value = '';
 
-            saveState();
+            await saveState();
             renderAdminView();
             showToast("New competition created!");
+        }
+
+        async function renameCompetitionPrompt(compId) {
+            const comp = state.competitions.find(c => c.id === compId);
+            if (!comp) return;
+
+            const newName = prompt("Enter new Competition Name:", comp.name);
+            if (!newName || newName.trim() === "") return;
+
+            const newSeason = prompt("Enter Season Tag:", comp.season);
+
+            comp.name = newName.trim();
+            if (newSeason && newSeason.trim() !== "") {
+                comp.season = newSeason.trim();
+            }
+
+            await saveState();
+            populateCompetitionDropdowns();
+            renderCompetitionsList();
+            showToast("Competition updated!");
         }
 
         function renderCompetitionsList() {
@@ -1278,13 +1363,18 @@
                         <div class="font-bold text-white text-xs sm:text-sm">${c.name}</div>
                         <div class="text-[10px] sm:text-xs text-slate-500">Season: ${c.season} | ID: ${c.id}</div>
                     </div>
-                    <span class="text-[10px] sm:text-xs bg-slate-800 text-brand-400 border border-slate-700 px-2 sm:px-2.5 py-1 rounded-lg font-mono font-bold">${gwCount} Gameweek(s)</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[10px] sm:text-xs bg-slate-800 text-brand-400 border border-slate-700 px-2 sm:px-2.5 py-1 rounded-lg font-mono font-bold">${gwCount} Gameweek(s)</span>
+                        <button onclick="renameCompetitionPrompt('${c.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg font-semibold transition" title="Rename Competition">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                    </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function handleCreateUser(e) {
+        async function handleCreateUser(e) {
             e.preventDefault();
             const username = document.getElementById('new-user-username').value.trim();
             const password = document.getElementById('new-user-password').value.trim();
@@ -1307,7 +1397,7 @@
             document.getElementById('new-user-password').value = '';
             document.getElementById('new-user-display').value = '';
 
-            saveState();
+            await saveState();
             renderAdminUsers();
             showToast(`User '${displayName}' registered successfully!`);
         }
@@ -1332,9 +1422,9 @@
             });
         }
 
-        function deleteUser(userId) {
+        async function deleteUser(userId) {
             state.users = state.users.filter(u => u.id !== userId);
-            saveState();
+            await saveState();
             renderAdminUsers();
             showToast("User removed.");
         }
@@ -1354,3 +1444,9 @@
     </script>
 </body>
 </html>
+```
+
+### Summary of Updates:
+1. **Gameweek Renaming**: Click **"Rename Active Week"** or the **"Rename"** link in the Admin Console to change any week's name.
+2. **Competition Renaming**: Click the yellow **edit icon** next to any active competition in the Competitions sub-tab to edit its title or season tag.
+3. **Cloud Synchronization**: All changes save immediately to your live **Supabase database** and sync across all phones and computers!
