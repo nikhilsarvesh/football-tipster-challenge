@@ -592,7 +592,16 @@
                         .single();
 
                     if (data && data.state_data) {
-                        state = data.state_data;
+                        state = {
+                            competitions: (data.state_data.competitions && data.state_data.competitions.length > 0) ? data.state_data.competitions : initialCompetitions,
+                            users: (data.state_data.users && data.state_data.users.length > 0) ? data.state_data.users : initialUsers,
+                            gameweeks: (data.state_data.gameweeks && Object.keys(data.state_data.gameweeks).length > 0) ? data.state_data.gameweeks : initialGameweeks,
+                            predictions: data.state_data.predictions || initialPredictions,
+                            currentUser: null,
+                            activeTab: 'predict',
+                            adminTab: 'matches',
+                            leaderboardMode: 'weekly'
+                        };
                         document.getElementById('cloud-badge').classList.remove('hidden');
                         document.getElementById('cloud-badge').classList.add('flex');
                         return;
@@ -606,7 +615,19 @@
             const savedState = localStorage.getItem('tipster_multiweek_state');
             if (savedState) {
                 try {
-                    state = JSON.parse(savedState);
+                    const parsed = JSON.parse(savedState);
+                    if (parsed) {
+                        state = {
+                            competitions: (parsed.competitions && parsed.competitions.length > 0) ? parsed.competitions : initialCompetitions,
+                            users: (parsed.users && parsed.users.length > 0) ? parsed.users : initialUsers,
+                            gameweeks: (parsed.gameweeks && Object.keys(parsed.gameweeks).length > 0) ? parsed.gameweeks : initialGameweeks,
+                            predictions: parsed.predictions || initialPredictions,
+                            currentUser: null,
+                            activeTab: 'predict',
+                            adminTab: 'matches',
+                            leaderboardMode: 'weekly'
+                        };
+                    }
                 } catch(e) {
                     console.error("Could not parse saved local state", e);
                 }
@@ -659,6 +680,9 @@
             document.getElementById('user-avatar').textContent = foundUser.displayName.charAt(0).toUpperCase();
             document.getElementById('user-role-badge').textContent = foundUser.role === 'admin' ? 'Admin Controller' : 'Tipster Account';
 
+            // Populate dropdown options FIRST so initial state is set
+            populateCompetitionDropdowns();
+
             const adminTabBtn = document.getElementById('tab-admin');
             const mobileAdminTabBtn = document.getElementById('mobile-tab-admin');
 
@@ -672,7 +696,6 @@
                 switchTab('predict');
             }
 
-            populateCompetitionDropdowns();
             showToast(`Welcome back, ${foundUser.displayName}!`);
             return true;
         }
@@ -750,54 +773,82 @@
         function onUserCompChange() {
             const compSelect = document.getElementById('user-comp-select');
             if (!compSelect) return;
-            const compId = compSelect.value || (state.competitions[0] && state.competitions[0].id);
-            const gwList = state.gameweeks[compId] || [];
+
+            let compId = compSelect.value;
+            if (!compId && state.competitions && state.competitions.length > 0) {
+                compId = state.competitions[0].id;
+                compSelect.value = compId;
+            }
+
+            const gwList = (state.gameweeks && state.gameweeks[compId]) || [];
             const gwSelect = document.getElementById('user-gw-select');
 
-            gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            if (!gwSelect) return;
 
-            const now = new Date();
-            const openGw = gwList.find(gw => new Date(gw.deadline) > now);
-            if (openGw) {
-                gwSelect.value = openGw.id;
-            } else if (gwList.length > 0) {
-                gwSelect.value = gwList[gwList.length - 1].id;
+            if (gwList.length === 0) {
+                gwSelect.innerHTML = '<option value="">No Gameweeks</option>';
+            } else {
+                gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+
+                const now = new Date();
+                const openGw = gwList.find(gw => new Date(gw.deadline) > now);
+                if (openGw) {
+                    gwSelect.value = openGw.id;
+                } else {
+                    gwSelect.value = gwList[0].id;
+                }
             }
 
             loadUserPredictions();
         }
 
         function loadUserPredictions() {
-            const compId = document.getElementById('user-comp-select').value;
-            const gwId = document.getElementById('user-gw-select').value;
+            const compSelect = document.getElementById('user-comp-select');
+            const gwSelect = document.getElementById('user-gw-select');
+
+            const compId = compSelect ? compSelect.value : "";
+            const gwId = gwSelect ? gwSelect.value : "";
             
-            const gwList = state.gameweeks[compId] || [];
+            const gwList = (state.gameweeks && state.gameweeks[compId]) || [];
             const activeGw = gwList.find(g => g.id === gwId) || gwList[0];
 
+            const deadlineTimer = document.getElementById('deadline-timer');
+            const roundStatusBadge = document.getElementById('round-status-badge');
+
             if (!activeGw) {
-                document.getElementById('matches-container').innerHTML = `<p class="col-span-full text-slate-500 text-center py-8">No Gameweeks available for this competition yet.</p>`;
+                document.getElementById('matches-container').innerHTML = `<p class="col-span-full text-slate-500 text-center py-8">No Gameweeks or matches available for this competition yet.</p>`;
+                if (deadlineTimer) deadlineTimer.textContent = "No Deadline Set";
+                if (roundStatusBadge) roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-500 mr-1.5"></span> No Active Round`;
+                updateSelectionProgress(0, 0, true);
                 return;
             }
 
             const matches = activeGw.matches || [];
             const now = new Date();
             const deadlineDate = new Date(activeGw.deadline);
-            const isLocked = now > deadlineDate;
-
-            const deadlineTimer = document.getElementById('deadline-timer');
-            const roundStatusBadge = document.getElementById('round-status-badge');
+            const isValidDate = !isNaN(deadlineDate.getTime());
+            const isLocked = isValidDate ? (now > deadlineDate) : false;
 
             if (deadlineTimer) {
-                deadlineTimer.textContent = deadlineDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                if (isValidDate) {
+                    deadlineTimer.textContent = deadlineDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                } else {
+                    deadlineTimer.textContent = "Deadline Not Set";
+                }
+
                 if (isLocked) {
-                    deadlineTimer.textContent += " (LOCKED)";
+                    if (isValidDate) deadlineTimer.textContent += " (LOCKED)";
                     deadlineTimer.className = "text-xs font-bold text-rose-400";
-                    roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></span> Locked`;
-                    roundStatusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-2";
+                    if (roundStatusBadge) {
+                        roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></span> Locked`;
+                        roundStatusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-2";
+                    }
                 } else {
                     deadlineTimer.className = "text-xs font-bold text-amber-400";
-                    roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-brand-500 mr-1.5 animate-pulse"></span> Round Open`;
-                    roundStatusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500 border border-brand-500/20 mb-2";
+                    if (roundStatusBadge) {
+                        roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-brand-500 mr-1.5 animate-pulse"></span> Round Open`;
+                        roundStatusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500 border border-brand-500/20 mb-2";
+                    }
                 }
             }
 
@@ -817,7 +868,7 @@
                 const matchCard = document.createElement('div');
                 matchCard.className = "bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-lg hover:border-slate-700/80 transition flex flex-col justify-between";
                 
-                const matchDate = new Date(m.date).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+                const matchDate = m.date ? new Date(m.date).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : "TBD";
 
                 const scoreDisplay = (m.homeScore !== "" && m.awayScore !== "" && m.homeScore !== null && m.awayScore !== undefined && m.awayScore !== null) 
                     ? `<span class="text-xs bg-brand-500/20 text-brand-400 border border-brand-500/30 px-2 py-0.5 rounded font-mono font-bold">${m.homeScore} - ${m.awayScore} <span class="text-[9px] text-brand-300 ml-0.5">FT</span></span>`
@@ -849,19 +900,19 @@
                     </div>
 
                     <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-800/80">
-                        <button onclick="selectPick('${compId}', '${gwId}', ${m.matchNum}, '1')" ${isLocked ? 'disabled' : ''} 
+                        <button onclick="selectPick('${compId}', '${activeGw.id}', ${m.matchNum}, '1')" ${isLocked ? 'disabled' : ''} 
                             class="p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${pick === '1' ? 'bg-brand-500/20 border-brand-500 text-brand-500 font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'} ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}">
                             <span class="text-[9px] uppercase font-bold text-slate-400">Home (1)</span>
                             <span class="text-xs font-mono font-bold mt-0.5">${parseFloat(m.oddsHome).toFixed(2)}</span>
                         </button>
 
-                        <button onclick="selectPick('${compId}', '${gwId}', ${m.matchNum}, 'X')" ${isLocked ? 'disabled' : ''} 
+                        <button onclick="selectPick('${compId}', '${activeGw.id}', ${m.matchNum}, 'X')" ${isLocked ? 'disabled' : ''} 
                             class="p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${pick === 'X' ? 'bg-brand-500/20 border-brand-500 text-brand-500 font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'} ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}">
                             <span class="text-[9px] uppercase font-bold text-slate-400">Draw (X)</span>
                             <span class="text-xs font-mono font-bold mt-0.5">${parseFloat(m.oddsDraw).toFixed(2)}</span>
                         </button>
 
-                        <button onclick="selectPick('${compId}', '${gwId}', ${m.matchNum}, '2')" ${isLocked ? 'disabled' : ''} 
+                        <button onclick="selectPick('${compId}', '${activeGw.id}', ${m.matchNum}, '2')" ${isLocked ? 'disabled' : ''} 
                             class="p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${pick === '2' ? 'bg-brand-500/20 border-brand-500 text-brand-500 font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'} ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}">
                             <span class="text-[9px] uppercase font-bold text-slate-400">Away (2)</span>
                             <span class="text-xs font-mono font-bold mt-0.5">${parseFloat(m.oddsAway).toFixed(2)}</span>
@@ -920,11 +971,13 @@
         }
 
         function onLeaderboardCompChange() {
-            const compId = document.getElementById('leaderboard-comp-select').value || state.competitions[0].id;
-            const gwList = state.gameweeks[compId] || [];
+            const compId = document.getElementById('leaderboard-comp-select').value || (state.competitions[0] && state.competitions[0].id);
+            const gwList = (state.gameweeks && state.gameweeks[compId]) || [];
             const gwSelect = document.getElementById('leaderboard-gw-select');
 
-            gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            if (gwSelect) {
+                gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            }
             renderLeaderboard();
         }
 
@@ -941,11 +994,14 @@
         }
 
         function renderLeaderboard() {
-            const compId = document.getElementById('leaderboard-comp-select').value || state.competitions[0].id;
-            const gwId = document.getElementById('leaderboard-gw-select').value;
-            const gwList = state.gameweeks[compId] || [];
+            const compSelect = document.getElementById('leaderboard-comp-select');
+            const gwSelect = document.getElementById('leaderboard-gw-select');
+
+            const compId = compSelect ? compSelect.value : (state.competitions[0] && state.competitions[0].id);
+            const gwId = gwSelect ? gwSelect.value : "";
+            const gwList = (state.gameweeks && state.gameweeks[compId]) || [];
             
-            const allCompPredictions = state.predictions[compId] || {};
+            const allCompPredictions = (state.predictions && state.predictions[compId]) || {};
 
             const standings = state.users.filter(u => u.role === 'user').map(user => {
                 let weekPoints = 0;
@@ -1053,29 +1109,31 @@
         }
 
         function onAdminCompChange() {
-            const compId = document.getElementById('admin-comp-select').value || state.competitions[0].id;
-            const gwList = state.gameweeks[compId] || [];
+            const compId = document.getElementById('admin-comp-select').value || (state.competitions[0] && state.competitions[0].id);
+            const gwList = (state.gameweeks && state.gameweeks[compId]) || [];
             const gwSelect = document.getElementById('admin-gw-select');
 
-            gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            if (gwSelect) {
+                gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            }
             renderAdminMatches();
         }
 
         function renderAdminMatches() {
             const compId = document.getElementById('admin-comp-select').value;
             const gwId = document.getElementById('admin-gw-select').value;
-            const gwList = state.gameweeks[compId] || [];
+            const gwList = (state.gameweeks && state.gameweeks[compId]) || [];
             const activeGw = gwList.find(g => g.id === gwId) || gwList[0];
 
             if (!activeGw) return;
 
-            document.getElementById('admin-deadline-input').value = activeGw.deadline;
+            document.getElementById('admin-deadline-input').value = activeGw.deadline || "";
             document.getElementById('admin-gw-title-heading').textContent = `${activeGw.name} Matches & FT Score Settler`;
 
             const list = document.getElementById('admin-matches-list');
             list.innerHTML = '';
 
-            activeGw.matches.forEach((m, idx) => {
+            (activeGw.matches || []).forEach((m, idx) => {
                 const item = document.createElement('div');
                 item.className = "bg-slate-950 border border-slate-800 rounded-xl p-3 sm:p-4 grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 items-center";
 
@@ -1444,9 +1502,3 @@
     </script>
 </body>
 </html>
-```
-
-### Summary of Updates:
-1. **Gameweek Renaming**: Click **"Rename Active Week"** or the **"Rename"** link in the Admin Console to change any week's name.
-2. **Competition Renaming**: Click the yellow **edit icon** next to any active competition in the Competitions sub-tab to edit its title or season tag.
-3. **Cloud Synchronization**: All changes save immediately to your live **Supabase database** and sync across all phones and computers!
