@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nikhil S. Beersing - Football Tipster Challenge</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            accent: '#f59e0b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col min-h-screen">
+
+    <!-- Navigation Header -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
+                
+                <!-- Brand Logo & Title (Mobile Optimized) -->
+                <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
+                    <div class="bg-gradient-to-tr from-brand-600 to-emerald-400 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-lg shadow-emerald-950/50">
+                        <i class="fa-solid fa-trophy text-slate-950 text-base sm:text-xl font-bold"></i>
+                    </div>
+                    <div class="leading-tight">
+                        <span class="text-xs sm:text-base md:text-xl font-black tracking-wider uppercase text-white block">
+                            Nikhil S. <span class="text-brand-500">Beersing</span>
+                        </span>
+                        <span class="block text-[8px] sm:text-[10px] text-slate-400 font-semibold tracking-wider sm:tracking-widest uppercase -mt-0.5 sm:-mt-1">
+                            Football Tipster Challenge
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Navigation Links (Desktop/Tablet) -->
+                <nav id="nav-links" class="hidden md:flex space-x-1">
+                    <button onclick="switchTab('predict')" id="tab-predict" class="nav-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 text-slate-300 hover:bg-slate-800">
+                        <i class="fa-solid fa-list-check text-brand-500"></i>
+                        <span>Predictions</span>
+                    </button>
+                    <button onclick="switchTab('leaderboard')" id="tab-leaderboard" class="nav-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 text-slate-300 hover:bg-slate-800">
+                        <i class="fa-solid fa-ranking-star text-amber-500"></i>
+                        <span>Leaderboard</span>
+                    </button>
+                    <button onclick="switchTab('admin')" id="tab-admin" class="nav-tab hidden px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 text-slate-300 hover:bg-slate-800">
+                        <i class="fa-solid fa-user-shield text-indigo-400"></i>
+                        <span>Admin Console</span>
+                    </button>
+                </nav>
+
+                <!-- User Quick Auth Status -->
+                <div class="flex items-center space-x-2">
+                    <div id="user-badge" class="hidden items-center space-x-2 bg-slate-800/80 border border-slate-700/60 px-2.5 py-1.5 rounded-full">
+                        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-brand-500/20 border border-brand-500/40 flex items-center justify-center text-brand-500 text-xs font-bold" id="user-avatar">
+                            U
+                        </div>
+                        <div class="text-left max-w-[90px] sm:max-w-none truncate">
+                            <p class="text-[11px] sm:text-xs font-bold text-white leading-none truncate" id="user-display-name">User Name</p>
+                            <p class="text-[9px] sm:text-[10px] text-slate-400 leading-tight mt-0.5" id="user-role-badge">Tipster</p>
+                        </div>
+                        <button onclick="logout()" class="ml-1 sm:ml-2 text-slate-400 hover:text-rose-400 text-xs transition" title="Log Out">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Mobile Sub-Navigation Bar (Shown on small screens when logged in) -->
+            <div id="mobile-nav" class="hidden md:hidden border-t border-slate-800/80 py-2 flex justify-around">
+                <button onclick="switchTab('predict')" id="mobile-tab-predict" class="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 text-slate-300">
+                    <i class="fa-solid fa-list-check text-brand-500"></i>
+                    <span>Predictions</span>
+                </button>
+                <button onclick="switchTab('leaderboard')" id="mobile-tab-leaderboard" class="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 text-slate-300">
+                    <i class="fa-solid fa-ranking-star text-amber-500"></i>
+                    <span>Leaderboard</span>
+                </button>
+                <button onclick="switchTab('admin')" id="mobile-tab-admin" class="hidden text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 text-slate-300">
+                    <i class="fa-solid fa-user-shield text-indigo-400"></i>
+                    <span>Admin</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+
+        <!-- VIEW: Auth / Login Page -->
+        <section id="view-login" class="max-w-md mx-auto my-6 sm:my-12 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-8 shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl"></div>
+            
+            <div class="text-center mb-6 sm:mb-8">
+                <div class="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-brand-500/10 border border-brand-500/20 rounded-2xl text-brand-500 text-xl sm:text-2xl mb-3">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold text-white">Platform Login</h2>
+                <p class="text-xs sm:text-sm text-slate-400 mt-1">Enter your account credentials to continue</p>
+            </div>
+
+            <div id="login-error" class="hidden mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs flex items-center space-x-2">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span id="login-error-msg">Invalid username or password</span>
+            </div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4 sm:space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Username</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3.5 top-3.5 text-slate-500 text-sm"></i>
+                        <input type="text" id="login-username" required placeholder="Enter your username" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-key absolute left-3.5 top-3.5 text-slate-500 text-sm"></i>
+                        <input type="password" id="login-password" required placeholder="••••••••" 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 transition">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-slate-950 font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 flex items-center justify-center space-x-2">
+                    <span>Sign In</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </form>
+        </section>
+
+        <!-- VIEW: User Predictions -->
+        <section id="view-predict" class="hidden space-y-4 sm:space-y-6">
+            <!-- Header & Controls Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <span id="round-status-badge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500 border border-brand-500/20 mb-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-brand-500 mr-1.5 animate-pulse"></span> Round Open
+                    </span>
+                    <h1 class="text-xl sm:text-2xl font-bold text-white" id="user-predict-heading">Match Predictions</h1>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Select your outcome for each match. Points awarded equal the winning decimal odds!</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <!-- Competition Selector -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Competition</label>
+                        <select id="user-comp-select" onchange="onUserCompChange()" class="w-full sm:w-auto bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500 transition font-medium min-w-[180px]">
+                        </select>
+                    </div>
+
+                    <!-- Gameweek Selector -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Gameweek</label>
+                        <select id="user-gw-select" onchange="loadUserPredictions()" class="w-full sm:w-auto bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500 transition font-medium min-w-[130px]">
+                        </select>
+                    </div>
+
+                    <!-- Deadline Box -->
+                    <div id="deadline-box" class="bg-slate-950 border border-slate-800 px-3 py-2 rounded-xl flex items-center space-x-3">
+                        <i class="fa-solid fa-clock text-amber-500 text-base sm:text-lg"></i>
+                        <div>
+                            <span class="block text-[9px] uppercase font-bold text-slate-400">Deadline</span>
+                            <span id="deadline-timer" class="text-xs font-bold text-amber-400">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matches List Container -->
+            <div id="matches-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <!-- Loaded dynamically -->
+            </div>
+
+            <!-- Save Predictions Sticky Bar -->
+            <div class="sticky bottom-4 sm:bottom-6 z-40 bg-slate-900/95 backdrop-blur border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-2xl flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2.5 sm:space-x-3">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-brand-500 text-xs sm:text-sm font-bold">
+                        <span id="completed-count">0</span>/<span id="total-matches-count">0</span>
+                    </div>
+                    <div>
+                        <div class="text-xs sm:text-sm font-bold text-white">Selected Picks</div>
+                        <div class="text-[10px] sm:text-xs text-slate-400" id="selection-status-text">Complete all picks to submit</div>
+                    </div>
+                </div>
+
+                <button id="save-predictions-btn" onclick="saveUserPredictions()" class="bg-brand-600 hover:bg-brand-500 text-slate-950 text-xs sm:text-sm font-bold px-4 sm:px-6 py-2.5 rounded-xl transition shadow-lg flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save Selection</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW: Leaderboard -->
+        <section id="view-leaderboard" class="hidden space-y-4 sm:space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 sm:mb-6">
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center space-x-2">
+                            <span>Leaderboard</span>
+                            <i class="fa-solid fa-trophy text-amber-500 text-lg sm:text-xl"></i>
+                        </h1>
+                        <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Live standings ranked by correct prediction decimal odds value.</p>
+                    </div>
+
+                    <!-- Controls: Competition, Week & Points Mode -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Competition</label>
+                            <select id="leaderboard-comp-select" onchange="onLeaderboardCompChange()" class="w-full sm:w-auto bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500 transition font-medium">
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Gameweek View</label>
+                            <select id="leaderboard-gw-select" onchange="renderLeaderboard()" class="w-full sm:w-auto bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500 transition font-medium">
+                            </select>
+                        </div>
+
+                        <div class="self-end bg-slate-950 p-1 border border-slate-800 rounded-xl flex w-full sm:w-auto">
+                            <button id="btn-view-weekly" onclick="setLeaderboardMode('weekly')" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition text-brand-500 bg-slate-800">
+                                Week Points
+                            </button>
+                            <button id="btn-view-cumulative" onclick="setLeaderboardMode('cumulative')" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                                Total Cumulative
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Table -->
+                <div class="overflow-x-auto -mx-4 sm:mx-0">
+                    <table class="w-full text-left border-collapse min-w-[500px]">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="py-3 px-3 sm:px-4">Rank</th>
+                                <th class="py-3 px-3 sm:px-4">Tipster Name</th>
+                                <th class="py-3 px-3 sm:px-4 text-center">Selected Week Correct</th>
+                                <th class="py-3 px-3 sm:px-4 text-center">Week Points</th>
+                                <th class="py-3 px-3 sm:px-4 text-right">Total Cumulative Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-table-body" class="divide-y divide-slate-800/60 text-xs sm:text-sm">
+                            <!-- Rows generated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: Admin Panel -->
+        <section id="view-admin" class="hidden space-y-4 sm:space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center space-x-2">
+                        <span>Admin Console</span>
+                        <span class="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded font-mono">ADMIN</span>
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Manage competitions, gameweeks, matches, odds, deadlines, and tipster user accounts.</p>
+                </div>
+            </div>
+
+            <!-- Admin Sub-tabs Nav -->
+            <div class="flex border-b border-slate-800 space-x-3 sm:space-x-4 overflow-x-auto whitespace-nowrap pb-1">
+                <button onclick="switchAdminTab('matches')" id="admin-tab-matches" class="pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-brand-500 text-brand-500 transition">
+                    <i class="fa-solid fa-futbol mr-1.5"></i> Gameweeks & Matches Manager
+                </button>
+                <button onclick="switchAdminTab('competitions')" id="admin-tab-competitions" class="pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-trophy mr-1.5"></i> Competitions
+                </button>
+                <button onclick="switchAdminTab('users')" id="admin-tab-users" class="pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-users mr-1.5"></i> User Accounts
+                </button>
+            </div>
+
+            <!-- ADMIN TAB 1: Manage Gameweeks & Matches -->
+            <div id="admin-sub-matches" class="space-y-4 sm:space-y-6">
+                <!-- Selection & Gameweek Creator Controls -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 items-end">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Active Competition</label>
+                        <select id="admin-comp-select" onchange="onAdminCompChange()" class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Active Gameweek</label>
+                        <select id="admin-gw-select" onchange="renderAdminMatches()" class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Gameweek Deadline</label>
+                        <input type="datetime-local" id="admin-deadline-input" class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                    </div>
+
+                    <div>
+                        <button onclick="updateGameweekDeadline()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-xl transition text-xs sm:text-sm flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-clock"></i>
+                            <span>Save Deadline</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Create New Gameweek Modal/Inline Action -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                        <h4 class="font-bold text-xs sm:text-sm text-white">Need another round for this competition?</h4>
+                        <p class="text-[11px] sm:text-xs text-slate-400">Add Gameweeks continuously (e.g., Week 1, Week 2, Week 3...)</p>
+                    </div>
+                    <button onclick="createNewGameweekPrompt()" class="bg-slate-800 hover:bg-slate-700 text-brand-500 border border-brand-500/30 px-3.5 py-2 rounded-xl font-bold text-xs transition flex items-center space-x-2 shrink-0">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Add New Gameweek</span>
+                    </button>
+                </div>
+
+                <!-- Matches Form List -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                        <div>
+                            <h3 class="font-bold text-white text-base sm:text-lg" id="admin-gw-title-heading">Matches Schedule & Result Settler</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Edit fixtures, odds, or set results (FT scores calculate outcomes automatically).</p>
+                        </div>
+                        <button onclick="addNewMatchToGameweek()" class="bg-slate-800 hover:bg-slate-700 text-xs text-white font-bold px-3 py-2 rounded-xl border border-slate-700 transition flex items-center space-x-1.5 self-start sm:self-auto">
+                            <i class="fa-solid fa-plus text-brand-500"></i>
+                            <span>Add Match Card</span>
+                        </button>
+                    </div>
+
+                    <div id="admin-matches-list" class="space-y-3 sm:space-y-4">
+                        <!-- Loaded dynamically -->
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-800 flex justify-end">
+                        <button onclick="saveAdminMatches()" class="bg-brand-600 hover:bg-brand-500 text-slate-950 font-bold px-5 sm:px-6 py-2.5 rounded-xl transition shadow-lg text-xs sm:text-sm flex items-center space-x-2">
+                            <i class="fa-solid fa-check"></i>
+                            <span>Save Gameweek & Recalculate Points</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN TAB 2: Manage Competitions -->
+            <div id="admin-sub-competitions" class="hidden space-y-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 max-w-xl">
+                    <h3 class="font-bold text-white text-base sm:text-lg mb-4">Create New Competition</h3>
+                    <form onsubmit="handleCreateCompetition(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Competition Title</label>
+                            <input type="text" id="new-comp-title" required placeholder="e.g. Premier League 2026/2027" 
+                                class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Season Tag</label>
+                            <input type="text" id="new-comp-season" required placeholder="e.g. 2026/2027" 
+                                class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition text-xs sm:text-sm">
+                            <i class="fa-solid fa-plus mr-1"></i> Create Competition
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6">
+                    <h3 class="font-bold text-white text-base sm:text-lg mb-4">Active Competitions</h3>
+                    <div id="competitions-list" class="divide-y divide-slate-800">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN TAB 3: User Accounts Management -->
+            <div id="admin-sub-users" class="hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 lg:col-span-1">
+                        <h3 class="font-bold text-white text-base sm:text-lg mb-4">Add New Tipster User</h3>
+                        <form onsubmit="handleCreateUser(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Username</label>
+                                <input type="text" id="new-user-username" required placeholder="e.g. mark_p" 
+                                    class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Password</label>
+                                <input type="text" id="new-user-password" required placeholder="••••••••" 
+                                    class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Leaderboard Display Name</label>
+                                <input type="text" id="new-user-display" required placeholder="e.g. Mark The Sharp" 
+                                    class="w-full bg-slate-950 border border-slate-800 text-xs sm:text-sm rounded-xl p-2.5 text-white focus:outline-none focus:border-brand-500">
+                            </div>
+                            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-slate-950 font-bold py-2.5 rounded-xl transition text-xs sm:text-sm">
+                                <i class="fa-solid fa-user-plus mr-1"></i> Register Tipster
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 lg:col-span-2">
+                        <h3 class="font-bold text-white text-base sm:text-lg mb-4">Registered Accounts</h3>
+                        <div class="overflow-x-auto -mx-4 sm:mx-0">
+                            <table class="w-full text-left min-w-[450px]">
+                                <thead>
+                                    <tr class="border-b border-slate-800 text-xs font-bold text-slate-400 uppercase">
+                                        <th class="py-2.5 px-3">Username</th>
+                                        <th class="py-2.5 px-3">Leaderboard Display Name</th>
+                                        <th class="py-2.5 px-3">Role</th>
+                                        <th class="py-2.5 px-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-users-table" class="divide-y divide-slate-800 text-xs sm:text-sm">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-brand-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 border border-brand-400">
+            <i class="fa-solid fa-circle-check text-lg"></i>
+            <span id="toast-message" class="text-xs sm:text-sm">Notification message</span>
+        </div>
+    </div>
+
+    <script>
+        const initialCompetitions = [
+            { id: "comp-pl-26", name: "Premier League 2026/2027", season: "2026/2027" },
+            { id: "comp-cl-26", name: "Champions League 2026/2027", season: "2026/2027" }
+        ];
+
+        const initialUsers = [
+            { id: "u-admin", username: "Sarvesh05", password: "1005", displayName: "Platform Admin", role: "admin" },
+            { id: "u-1", username: "alex_bets", password: "pass123", displayName: "Alex The Predictor", role: "user" },
+            { id: "u-2", username: "sarah_m", password: "pass123", displayName: "Sarah Sharp", role: "user" },
+            { id: "u-3", username: "david_goal", password: "pass123", displayName: "David Master", role: "user" },
+            { id: "u-4", username: "chris_p", password: "pass123", displayName: "Chris Odds", role: "user" }
+        ];
+
+        // Sample Week 1 Matches (Completed & Settled with scores)
+        const week1Matches = [
+            { matchNum: 1, date: "2026-09-05T12:30", homeTeam: "Manchester Utd", awayTeam: "Manchester City", oddsHome: 2.40, oddsDraw: 3.50, oddsAway: 2.00, homeScore: 0, awayScore: 2, result: "2" },
+            { matchNum: 2, date: "2026-09-05T15:00", homeTeam: "Arsenal", awayTeam: "Chelsea", oddsHome: 1.85, oddsDraw: 3.60, oddsAway: 4.20, homeScore: 3, awayScore: 1, result: "1" },
+            { matchNum: 3, date: "2026-09-05T15:00", homeTeam: "Liverpool", awayTeam: "Tottenham", oddsHome: 1.70, oddsDraw: 3.90, oddsAway: 4.80, homeScore: 2, awayScore: 0, result: "1" },
+            { matchNum: 4, date: "2026-09-05T15:00", homeTeam: "Aston Villa", awayTeam: "Newcastle", oddsHome: 2.30, oddsDraw: 3.20, oddsAway: 3.10, homeScore: 1, awayScore: 1, result: "X" },
+            { matchNum: 5, date: "2026-09-05T15:00", homeTeam: "Brighton", awayTeam: "West Ham", oddsHome: 2.10, oddsDraw: 3.30, oddsAway: 3.40, homeScore: 2, awayScore: 1, result: "1" },
+            { matchNum: 6, date: "2026-09-05T17:30", homeTeam: "Everton", awayTeam: "Fulham", oddsHome: 2.45, oddsDraw: 3.10, oddsAway: 2.90, homeScore: 0, awayScore: 1, result: "2" },
+            { matchNum: 7, date: "2026-09-06T14:00", homeTeam: "Crystal Palace", awayTeam: "Wolves", oddsHome: 2.20, oddsDraw: 3.25, oddsAway: 3.30, homeScore: 2, awayScore: 1, result: "1" },
+            { matchNum: 8, date: "2026-09-06T14:00", homeTeam: "Brentford", awayTeam: "Bournemouth", oddsHome: 2.15, oddsDraw: 3.40, oddsAway: 3.25, homeScore: 2, awayScore: 2, result: "X" },
+            { matchNum: 9, date: "2026-09-06T16:30", homeTeam: "Nottingham Forest", awayTeam: "Leicester City", oddsHome: 2.05, oddsDraw: 3.30, oddsAway: 3.60, homeScore: 1, awayScore: 0, result: "1" },
+            { matchNum: 10, date: "2026-09-07T20:00", homeTeam: "Sunderland", awayTeam: "Leeds United", oddsHome: 2.70, oddsDraw: 3.10, oddsAway: 2.60, homeScore: 0, awayScore: 0, result: "X" }
+        ];
+
+        // Sample Week 2 Matches (Upcoming & Open for Predictions)
+        const week2Matches = [
+            { matchNum: 1, date: "2026-09-12T12:30", homeTeam: "Chelsea", awayTeam: "Liverpool", oddsHome: 2.80, oddsDraw: 3.40, oddsAway: 2.30, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 2, date: "2026-09-12T15:00", homeTeam: "Manchester City", awayTeam: "Arsenal", oddsHome: 1.95, oddsDraw: 3.50, oddsAway: 3.80, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 3, date: "2026-09-12T15:00", homeTeam: "Tottenham", awayTeam: "Aston Villa", oddsHome: 2.05, oddsDraw: 3.30, oddsAway: 3.40, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 4, date: "2026-09-12T15:00", homeTeam: "Newcastle", awayTeam: "Brighton", oddsHome: 2.10, oddsDraw: 3.30, oddsAway: 3.20, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 5, date: "2026-09-12T17:30", homeTeam: "West Ham", awayTeam: "Everton", oddsHome: 2.20, oddsDraw: 3.20, oddsAway: 3.10, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 6, date: "2026-09-13T14:00", homeTeam: "Fulham", awayTeam: "Crystal Palace", oddsHome: 2.30, oddsDraw: 3.25, oddsAway: 2.95, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 7, date: "2026-09-13T14:00", homeTeam: "Wolves", awayTeam: "Brentford", oddsHome: 2.40, oddsDraw: 3.20, oddsAway: 2.85, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 8, date: "2026-09-13T16:30", homeTeam: "Bournemouth", awayTeam: "Nottingham Forest", oddsHome: 2.15, oddsDraw: 3.30, oddsAway: 3.20, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 9, date: "2026-09-14T20:00", homeTeam: "Leicester City", awayTeam: "Manchester Utd", oddsHome: 3.60, oddsDraw: 3.50, oddsAway: 1.90, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 10, date: "2026-09-14T20:00", homeTeam: "Leeds United", awayTeam: "Sheffield Utd", oddsHome: 2.00, oddsDraw: 3.20, oddsAway: 3.75, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 11, date: "2026-09-14T20:00", homeTeam: "Burnley", awayTeam: "Southampton", oddsHome: 2.30, oddsDraw: 3.10, oddsAway: 3.00, homeScore: "", awayScore: "", result: "" },
+            { matchNum: 12, date: "2026-09-14T20:00", homeTeam: "Ipswich Town", awayTeam: "Sunderland", oddsHome: 2.50, oddsDraw: 3.15, oddsAway: 2.75, homeScore: "", awayScore: "", result: "" }
+        ];
+
+        // Gameweek Data structure per competition
+        const initialGameweeks = {
+            "comp-pl-26": [
+                { id: "gw-pl-1", name: "Week 1", deadline: "2026-09-05T12:00", matches: week1Matches },
+                { id: "gw-pl-2", name: "Week 2 - Upcoming", deadline: "2026-09-12T12:00", matches: week2Matches }
+            ],
+            "comp-cl-26": [
+                { id: "gw-cl-1", name: "Matchday 1", deadline: "2026-09-15T20:00", matches: JSON.parse(JSON.stringify(week2Matches.slice(0, 8))) }
+            ]
+        };
+
+        // Seeded predictions
+        const initialPredictions = {
+            "comp-pl-26": {
+                "gw-pl-1": {
+                    "u-1": { 1: "2", 2: "1", 3: "1", 4: "X", 5: "1", 6: "2", 7: "1", 8: "X", 9: "1", 10: "X" },
+                    "u-2": { 1: "1", 2: "1", 3: "1", 4: "2", 5: "1", 6: "1", 7: "X", 8: "1", 9: "X", 10: "1" },
+                    "u-3": { 1: "2", 2: "X", 3: "1", 4: "X", 5: "2", 6: "2", 7: "1", 8: "X", 9: "1", 10: "2" }
+                },
+                "gw-pl-2": {
+                    "u-1": { 1: "2", 2: "1", 3: "1", 4: "X", 5: "1", 6: "1", 7: "X", 8: "1", 9: "2", 10: "1", 11: "X", 12: "1" }
+                }
+            }
+        };
+
+        let state = {
+            competitions: initialCompetitions,
+            users: initialUsers,
+            gameweeks: initialGameweeks,
+            predictions: initialPredictions,
+            currentUser: null,
+            activeTab: 'predict',
+            adminTab: 'matches',
+            leaderboardMode: 'weekly'
+        };
+
+        window.onload = function() {
+            const savedState = localStorage.getItem('tipster_multiweek_state');
+            if (savedState) {
+                try {
+                    state = JSON.parse(savedState);
+                } catch(e) {
+                    console.error("Could not parse saved state", e);
+                }
+            }
+
+            // Always enforce updated admin credentials
+            const adminUser = state.users.find(u => u.role === 'admin');
+            if (adminUser) {
+                adminUser.username = "Sarvesh05";
+                adminUser.password = "1005";
+            }
+
+            // Check session login state
+            if (state.currentUser) {
+                loginUserById(state.currentUser.id);
+            } else {
+                showLoginView();
+            }
+        };
+
+        function saveState() {
+            localStorage.setItem('tipster_multiweek_state', JSON.stringify(state));
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const userIn = document.getElementById('login-username').value.trim();
+            const passIn = document.getElementById('login-password').value.trim();
+
+            if (!loginUser(userIn, passIn)) {
+                const errBox = document.getElementById('login-error');
+                errBox.classList.remove('hidden');
+            }
+        }
+
+        function loginUser(username, password) {
+            const foundUser = state.users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+            if (foundUser) {
+                return completeLoginProcess(foundUser);
+            }
+            return false;
+        }
+
+        function loginUserById(userId) {
+            const foundUser = state.users.find(u => u.id === userId);
+            if (foundUser) {
+                completeLoginProcess(foundUser);
+            } else {
+                showLoginView();
+            }
+        }
+
+        function completeLoginProcess(foundUser) {
+            state.currentUser = foundUser;
+            saveState();
+
+            document.getElementById('login-error').classList.add('hidden');
+            
+            document.getElementById('user-badge').classList.remove('hidden');
+            document.getElementById('user-badge').classList.add('flex');
+            document.getElementById('user-display-name').textContent = foundUser.displayName;
+            document.getElementById('user-avatar').textContent = foundUser.displayName.charAt(0).toUpperCase();
+            document.getElementById('user-role-badge').textContent = foundUser.role === 'admin' ? 'Admin Controller' : 'Tipster Account';
+
+            const adminTabBtn = document.getElementById('tab-admin');
+            const mobileAdminTabBtn = document.getElementById('mobile-tab-admin');
+
+            if (foundUser.role === 'admin') {
+                if (adminTabBtn) adminTabBtn.classList.remove('hidden');
+                if (mobileAdminTabBtn) mobileAdminTabBtn.classList.remove('hidden');
+                switchTab('admin');
+            } else {
+                if (adminTabBtn) adminTabBtn.classList.add('hidden');
+                if (mobileAdminTabBtn) mobileAdminTabBtn.classList.add('hidden');
+                switchTab('predict');
+            }
+
+            populateCompetitionDropdowns();
+            showToast(`Welcome back, ${foundUser.displayName}!`);
+            return true;
+        }
+
+        function showLoginView() {
+            state.currentUser = null;
+            saveState();
+            hideAllViews();
+            document.getElementById('view-login').classList.remove('hidden');
+            document.getElementById('nav-links').classList.add('hidden');
+            document.getElementById('mobile-nav').classList.add('hidden');
+            document.getElementById('user-badge').classList.add('hidden');
+            document.getElementById('user-badge').classList.remove('flex');
+        }
+
+        function logout() {
+            showLoginView();
+            showToast("Signed out successfully");
+        }
+
+        function hideAllViews() {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-predict').classList.add('hidden');
+            document.getElementById('view-leaderboard').classList.add('hidden');
+            document.getElementById('view-admin').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            if (!state.currentUser) return showLoginView();
+
+            state.activeTab = tab;
+            hideAllViews();
+            
+            document.getElementById('nav-links').classList.remove('hidden');
+            document.getElementById('mobile-nav').classList.remove('hidden');
+
+            document.querySelectorAll('.nav-tab').forEach(b => {
+                b.classList.remove('bg-slate-800', 'text-white');
+                b.classList.add('text-slate-300');
+            });
+
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            if (activeBtn) activeBtn.classList.add('bg-slate-800', 'text-white');
+
+            const mobileActiveBtn = document.getElementById(`mobile-tab-${tab}`);
+            if (mobileActiveBtn) {
+                document.querySelectorAll('#mobile-nav button').forEach(mb => mb.classList.remove('bg-slate-800', 'text-white'));
+                mobileActiveBtn.classList.add('bg-slate-800', 'text-white');
+            }
+
+            if (tab === 'predict') {
+                document.getElementById('view-predict').classList.remove('hidden');
+                onUserCompChange();
+            } else if (tab === 'leaderboard') {
+                document.getElementById('view-leaderboard').classList.remove('hidden');
+                onLeaderboardCompChange();
+            } else if (tab === 'admin') {
+                if (state.currentUser.role !== 'admin') return switchTab('predict');
+                document.getElementById('view-admin').classList.remove('hidden');
+                renderAdminView();
+            }
+        }
+
+        function populateCompetitionDropdowns() {
+            const userCompSelect = document.getElementById('user-comp-select');
+            const leadCompSelect = document.getElementById('leaderboard-comp-select');
+            const adminCompSelect = document.getElementById('admin-comp-select');
+
+            const optionsHTML = state.competitions.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+            if (userCompSelect) userCompSelect.innerHTML = optionsHTML;
+            if (leadCompSelect) leadCompSelect.innerHTML = optionsHTML;
+            if (adminCompSelect) adminCompSelect.innerHTML = optionsHTML;
+        }
+
+        function onUserCompChange() {
+            const compSelect = document.getElementById('user-comp-select');
+            if (!compSelect) return;
+            const compId = compSelect.value || (state.competitions[0] && state.competitions[0].id);
+            const gwList = state.gameweeks[compId] || [];
+            const gwSelect = document.getElementById('user-gw-select');
+
+            gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+
+            // Automatically pick the first open/active Gameweek if available
+            const now = new Date();
+            const openGw = gwList.find(gw => new Date(gw.deadline) > now);
+            if (openGw) {
+                gwSelect.value = openGw.id;
+            } else if (gwList.length > 0) {
+                gwSelect.value = gwList[gwList.length - 1].id;
+            }
+
+            loadUserPredictions();
+        }
+
+        function loadUserPredictions() {
+            const compId = document.getElementById('user-comp-select').value;
+            const gwId = document.getElementById('user-gw-select').value;
+            
+            const gwList = state.gameweeks[compId] || [];
+            const activeGw = gwList.find(g => g.id === gwId) || gwList[0];
+
+            if (!activeGw) {
+                document.getElementById('matches-container').innerHTML = `<p class="col-span-full text-slate-500 text-center py-8">No Gameweeks available for this competition yet.</p>`;
+                return;
+            }
+
+            const matches = activeGw.matches || [];
+            const now = new Date();
+            const deadlineDate = new Date(activeGw.deadline);
+            const isLocked = now > deadlineDate;
+
+            const deadlineTimer = document.getElementById('deadline-timer');
+            const roundStatusBadge = document.getElementById('round-status-badge');
+
+            if (deadlineTimer) {
+                deadlineTimer.textContent = deadlineDate.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                if (isLocked) {
+                    deadlineTimer.textContent += " (LOCKED)";
+                    deadlineTimer.className = "text-xs font-bold text-rose-400";
+                    roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></span> Locked`;
+                    roundStatusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-2";
+                } else {
+                    deadlineTimer.className = "text-xs font-bold text-amber-400";
+                    roundStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-brand-500 mr-1.5 animate-pulse"></span> Round Open`;
+                    roundStatusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500 border border-brand-500/20 mb-2";
+                }
+            }
+
+            document.getElementById('user-predict-heading').textContent = `${activeGw.name} Match Predictions`;
+
+            const userPicks = (state.predictions[compId] && state.predictions[compId][gwId] && state.predictions[compId][gwId][state.currentUser.id]) || {};
+
+            const container = document.getElementById('matches-container');
+            container.innerHTML = '';
+
+            let completed = 0;
+
+            matches.forEach(m => {
+                const pick = userPicks[m.matchNum] || "";
+                if (pick) completed++;
+
+                const matchCard = document.createElement('div');
+                matchCard.className = "bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-lg hover:border-slate-700/80 transition flex flex-col justify-between";
+                
+                const matchDate = new Date(m.date).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+
+                const scoreDisplay = (m.homeScore !== "" && m.awayScore !== "" && m.homeScore !== null && m.awayScore !== undefined && m.awayScore !== null) 
+                    ? `<span class="text-xs bg-brand-500/20 text-brand-400 border border-brand-500/30 px-2 py-0.5 rounded font-mono font-bold">${m.homeScore} - ${m.awayScore} <span class="text-[9px] text-brand-300 ml-0.5">FT</span></span>`
+                    : `<span class="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded font-mono font-semibold">? - ?</span>`;
+
+                matchCard.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between text-xs text-slate-400 mb-2.5 pb-2 border-b border-slate-800">
+                            <span class="font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Match #${m.matchNum}</span>
+                            <div class="flex items-center space-x-2">
+                                ${scoreDisplay}
+                                <span class="flex items-center space-x-1 text-slate-500 text-[11px]">
+                                    <i class="fa-regular fa-calendar"></i>
+                                    <span>${matchDate}</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5 mb-3">
+                            <div class="flex items-center justify-between font-semibold text-xs sm:text-sm text-white">
+                                <span>${m.homeTeam}</span>
+                                ${m.result ? `<span class="text-[11px] ${m.result === '1' ? 'text-brand-500 font-bold' : 'text-slate-500'}">Res: 1</span>` : ''}
+                            </div>
+                            <div class="flex items-center justify-between font-semibold text-xs sm:text-sm text-white">
+                                <span>${m.awayTeam}</span>
+                                ${m.result ? `<span class="text-[11px] ${m.result === '2' ? 'text-brand-500 font-bold' : 'text-slate-500'}">Res: 2</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-800/80">
+                        <button onclick="selectPick('${compId}', '${gwId}', ${m.matchNum}, '1')" ${isLocked ? 'disabled' : ''} 
+                            class="p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${pick === '1' ? 'bg-brand-500/20 border-brand-500 text-brand-500 font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'} ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}">
+                            <span class="text-[9px] uppercase font-bold text-slate-400">Home (1)</span>
+                            <span class="text-xs font-mono font-bold mt-0.5">${parseFloat(m.oddsHome).toFixed(2)}</span>
+                        </button>
+
+                        <button onclick="selectPick('${compId}', '${gwId}', ${m.matchNum}, 'X')" ${isLocked ? 'disabled' : ''} 
+                            class="p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${pick === 'X' ? 'bg-brand-500/20 border-brand-500 text-brand-500 font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'} ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}">
+                            <span class="text-[9px] uppercase font-bold text-slate-400">Draw (X)</span>
+                            <span class="text-xs font-mono font-bold mt-0.5">${parseFloat(m.oddsDraw).toFixed(2)}</span>
+                        </button>
+
+                        <button onclick="selectPick('${compId}', '${gwId}', ${m.matchNum}, '2')" ${isLocked ? 'disabled' : ''} 
+                            class="p-2 rounded-xl border text-center transition flex flex-col items-center justify-center ${pick === '2' ? 'bg-brand-500/20 border-brand-500 text-brand-500 font-bold' : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'} ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}">
+                            <span class="text-[9px] uppercase font-bold text-slate-400">Away (2)</span>
+                            <span class="text-xs font-mono font-bold mt-0.5">${parseFloat(m.oddsAway).toFixed(2)}</span>
+                        </button>
+                    </div>
+                `;
+
+                container.appendChild(matchCard);
+            });
+
+            updateSelectionProgress(completed, matches.length, isLocked);
+        }
+
+        function selectPick(compId, gwId, matchNum, outcome) {
+            if (!state.predictions[compId]) state.predictions[compId] = {};
+            if (!state.predictions[compId][gwId]) state.predictions[compId][gwId] = {};
+            if (!state.predictions[compId][gwId][state.currentUser.id]) state.predictions[compId][gwId][state.currentUser.id] = {};
+
+            const userPicks = state.predictions[compId][gwId][state.currentUser.id];
+
+            if (userPicks[matchNum] === outcome) {
+                delete userPicks[matchNum];
+            } else {
+                userPicks[matchNum] = outcome;
+            }
+
+            loadUserPredictions();
+        }
+
+        function updateSelectionProgress(completed, total, isLocked) {
+            document.getElementById('completed-count').textContent = completed;
+            document.getElementById('total-matches-count').textContent = total;
+            const statusText = document.getElementById('selection-status-text');
+            const saveBtn = document.getElementById('save-predictions-btn');
+
+            if (isLocked) {
+                statusText.textContent = "Deadline passed. Locked.";
+                saveBtn.disabled = true;
+                saveBtn.className = "bg-slate-800 text-slate-500 text-xs sm:text-sm font-bold px-4 sm:px-6 py-2.5 rounded-xl cursor-not-allowed";
+            } else if (completed === total && total > 0) {
+                statusText.textContent = `All ${total} matches selected!`;
+                statusText.className = "text-[10px] sm:text-xs text-brand-500 font-semibold";
+                saveBtn.disabled = false;
+                saveBtn.className = "bg-brand-600 hover:bg-brand-500 text-slate-950 text-xs sm:text-sm font-bold px-4 sm:px-6 py-2.5 rounded-xl transition shadow-lg cursor-pointer flex items-center space-x-1.5";
+            } else {
+                statusText.textContent = `Select ${total - completed} more pick(s)`;
+                statusText.className = "text-[10px] sm:text-xs text-slate-400";
+                saveBtn.disabled = false;
+                saveBtn.className = "bg-brand-600/80 hover:bg-brand-600 text-slate-950 text-xs sm:text-sm font-bold px-4 sm:px-6 py-2.5 rounded-xl transition cursor-pointer flex items-center space-x-1.5";
+            }
+        }
+
+        function saveUserPredictions() {
+            saveState();
+            showToast("Your gameweek predictions have been saved!");
+        }
+
+        function onLeaderboardCompChange() {
+            const compId = document.getElementById('leaderboard-comp-select').value || state.competitions[0].id;
+            const gwList = state.gameweeks[compId] || [];
+            const gwSelect = document.getElementById('leaderboard-gw-select');
+
+            gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            renderLeaderboard();
+        }
+
+        function setLeaderboardMode(mode) {
+            state.leaderboardMode = mode;
+            document.getElementById('btn-view-weekly').className = mode === 'weekly' 
+                ? "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition text-brand-500 bg-slate-800" 
+                : "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            document.getElementById('btn-view-cumulative').className = mode === 'cumulative' 
+                ? "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition text-brand-500 bg-slate-800" 
+                : "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            const compId = document.getElementById('leaderboard-comp-select').value || state.competitions[0].id;
+            const gwId = document.getElementById('leaderboard-gw-select').value;
+            const gwList = state.gameweeks[compId] || [];
+            
+            const allCompPredictions = state.predictions[compId] || {};
+
+            const standings = state.users.filter(u => u.role === 'user').map(user => {
+                let weekPoints = 0;
+                let correctCount = 0;
+                let totalCumulativePoints = 0;
+
+                gwList.forEach(gw => {
+                    const gwPredictions = (allCompPredictions[gw.id] && allCompPredictions[gw.id][user.id]) || {};
+                    let gwScore = 0;
+
+                    gw.matches.forEach(m => {
+                        const pick = gwPredictions[m.matchNum];
+                        if (m.result && pick && m.result === pick) {
+                            let matchPoints = 0;
+                            if (pick === '1') matchPoints = parseFloat(m.oddsHome);
+                            if (pick === 'X') matchPoints = parseFloat(m.oddsDraw);
+                            if (pick === '2') matchPoints = parseFloat(m.oddsAway);
+
+                            gwScore += matchPoints;
+
+                            if (gw.id === gwId) {
+                                correctCount++;
+                                weekPoints += matchPoints;
+                            }
+                        }
+                    });
+
+                    totalCumulativePoints += gwScore;
+                });
+
+                return {
+                    userId: user.id,
+                    displayName: user.displayName,
+                    correctCount,
+                    weekPoints: parseFloat(weekPoints.toFixed(2)),
+                    totalPoints: parseFloat(totalCumulativePoints.toFixed(2))
+                };
+            });
+
+            standings.sort((a, b) => {
+                if (state.leaderboardMode === 'weekly') {
+                    return b.weekPoints - a.weekPoints;
+                } else {
+                    return b.totalPoints - a.totalPoints;
+                }
+            });
+
+            const tbody = document.getElementById('leaderboard-table-body');
+            tbody.innerHTML = '';
+
+            standings.forEach((st, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/40 transition";
+
+                let rankBadge = `<span class="font-bold text-slate-400">${idx + 1}</span>`;
+                if (idx === 0) rankBadge = `<span class="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500/20 text-amber-400 font-black text-xs border border-amber-500/30">1</span>`;
+                if (idx === 1) rankBadge = `<span class="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-300/20 text-slate-300 font-black text-xs border border-slate-300/30">2</span>`;
+                if (idx === 2) rankBadge = `<span class="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-700/20 text-amber-600 font-black text-xs border border-amber-700/30">3</span>`;
+
+                tr.innerHTML = `
+                    <td class="py-3 px-3 sm:px-4">${rankBadge}</td>
+                    <td class="py-3 px-3 sm:px-4 font-semibold text-white">
+                        ${st.displayName}
+                        ${state.currentUser && state.currentUser.id === st.userId ? '<span class="ml-1.5 text-[9px] bg-brand-500/20 text-brand-500 px-1.5 py-0.5 rounded font-bold">YOU</span>' : ''}
+                    </td>
+                    <td class="py-3 px-3 sm:px-4 text-center font-mono text-slate-300">${st.correctCount}</td>
+                    <td class="py-3 px-3 sm:px-4 text-center font-mono font-bold text-brand-400">+${st.weekPoints.toFixed(2)}</td>
+                    <td class="py-3 px-3 sm:px-4 text-right font-mono font-black text-amber-400 text-sm sm:text-base">${st.totalPoints.toFixed(2)} pts</td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderAdminView() {
+            populateCompetitionDropdowns();
+            onAdminCompChange();
+            renderCompetitionsList();
+            renderAdminUsers();
+        }
+
+        function switchAdminTab(subTab) {
+            state.adminTab = subTab;
+            document.getElementById('admin-sub-matches').classList.add('hidden');
+            document.getElementById('admin-sub-competitions').classList.add('hidden');
+            document.getElementById('admin-sub-users').classList.add('hidden');
+
+            document.getElementById('admin-tab-matches').className = "pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white transition";
+            document.getElementById('admin-tab-competitions').className = "pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white transition";
+            document.getElementById('admin-tab-users').className = "pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white transition";
+
+            if (subTab === 'matches') {
+                document.getElementById('admin-sub-matches').classList.remove('hidden');
+                document.getElementById('admin-tab-matches').className = "pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-brand-500 text-brand-500 transition";
+                onAdminCompChange();
+            } else if (subTab === 'competitions') {
+                document.getElementById('admin-sub-competitions').classList.remove('hidden');
+                document.getElementById('admin-tab-competitions').className = "pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-brand-500 text-brand-500 transition";
+                renderCompetitionsList();
+            } else if (subTab === 'users') {
+                document.getElementById('admin-sub-users').classList.remove('hidden');
+                document.getElementById('admin-tab-users').className = "pb-2.5 text-xs sm:text-sm font-bold border-b-2 border-brand-500 text-brand-500 transition";
+                renderAdminUsers();
+            }
+        }
+
+        function onAdminCompChange() {
+            const compId = document.getElementById('admin-comp-select').value || state.competitions[0].id;
+            const gwList = state.gameweeks[compId] || [];
+            const gwSelect = document.getElementById('admin-gw-select');
+
+            gwSelect.innerHTML = gwList.map(gw => `<option value="${gw.id}">${gw.name}</option>`).join('');
+            renderAdminMatches();
+        }
+
+        function renderAdminMatches() {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwId = document.getElementById('admin-gw-select').value;
+            const gwList = state.gameweeks[compId] || [];
+            const activeGw = gwList.find(g => g.id === gwId) || gwList[0];
+
+            if (!activeGw) return;
+
+            document.getElementById('admin-deadline-input').value = activeGw.deadline;
+            document.getElementById('admin-gw-title-heading').textContent = `${activeGw.name} Matches & FT Score Settler`;
+
+            const list = document.getElementById('admin-matches-list');
+            list.innerHTML = '';
+
+            activeGw.matches.forEach((m, idx) => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-950 border border-slate-800 rounded-xl p-3 sm:p-4 grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 items-center";
+
+                const hVal = (m.homeScore !== undefined && m.homeScore !== null) ? m.homeScore : "";
+                const aVal = (m.awayScore !== undefined && m.awayScore !== null) ? m.awayScore : "";
+
+                item.innerHTML = `
+                    <div class="md:col-span-1 font-bold text-xs sm:text-sm text-brand-500 flex items-center justify-between">
+                        <span>Match #${m.matchNum}</span>
+                        <button onclick="removeAdminMatch(${idx})" class="text-xs text-slate-600 hover:text-rose-400 md:hidden" title="Delete Match"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+
+                    <div class="md:col-span-3 grid grid-cols-2 gap-2">
+                        <input type="text" id="admin-home-${idx}" value="${m.homeTeam}" placeholder="Home Team" class="bg-slate-900 border border-slate-800 text-xs rounded p-2 text-white">
+                        <input type="text" id="admin-away-${idx}" value="${m.awayTeam}" placeholder="Away Team" class="bg-slate-900 border border-slate-800 text-xs rounded p-2 text-white">
+                    </div>
+
+                    <div class="md:col-span-3 grid grid-cols-3 gap-1">
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] text-slate-500">Odds 1</label>
+                            <input type="number" step="0.01" id="admin-o1-${idx}" value="${m.oddsHome}" class="w-full bg-slate-900 border border-slate-800 text-xs rounded p-1.5 text-white font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] text-slate-500">Odds X</label>
+                            <input type="number" step="0.01" id="admin-ox-${idx}" value="${m.oddsDraw}" class="w-full bg-slate-900 border border-slate-800 text-xs rounded p-1.5 text-white font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] sm:text-[9px] text-slate-500">Odds 2</label>
+                            <input type="number" step="0.01" id="admin-o2-${idx}" value="${m.oddsAway}" class="w-full bg-slate-900 border border-slate-800 text-xs rounded p-1.5 text-white font-mono">
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-[8px] sm:text-[9px] text-slate-500 mb-0.5">Match Date & Time</label>
+                        <input type="datetime-local" id="admin-date-${idx}" value="${m.date}" class="w-full bg-slate-900 border border-slate-800 text-xs rounded p-1.5 text-white">
+                    </div>
+
+                    <div class="md:col-span-3 flex items-center space-x-2">
+                        <div class="flex-grow grid grid-cols-2 gap-1.5">
+                            <div>
+                                <label class="block text-[8px] sm:text-[9px] text-amber-500 font-bold mb-0.5">FT Home</label>
+                                <input type="number" min="0" id="admin-hs-${idx}" value="${hVal}" placeholder="?" class="w-full bg-slate-900 border border-amber-500/40 text-xs rounded p-1.5 text-amber-400 font-bold font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[8px] sm:text-[9px] text-amber-500 font-bold mb-0.5">FT Away</label>
+                                <input type="number" min="0" id="admin-as-${idx}" value="${aVal}" placeholder="?" class="w-full bg-slate-900 border border-amber-500/40 text-xs rounded p-1.5 text-amber-400 font-bold font-mono">
+                            </div>
+                        </div>
+                        <button onclick="removeAdminMatch(${idx})" class="hidden md:block mt-3 text-slate-600 hover:text-rose-400 transition p-1" title="Delete Match">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function createNewGameweekPrompt() {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwList = state.gameweeks[compId] || [];
+            const nextGwNum = gwList.length + 1;
+
+            const gwName = prompt(`Enter title for new gameweek:`, `Week ${nextGwNum}`);
+            if (!gwName) return;
+
+            const newGwId = `gw-${Date.now()}`;
+            const newGameweek = {
+                id: newGwId,
+                name: gwName,
+                deadline: "2026-09-20T12:00",
+                matches: Array.from({ length: 12 }, (_, i) => ({
+                    matchNum: i + 1,
+                    date: "2026-09-20T15:00",
+                    homeTeam: `Home Team ${i + 1}`,
+                    awayTeam: `Away Team ${i + 1}`,
+                    oddsHome: 2.10,
+                    oddsDraw: 3.20,
+                    oddsAway: 2.80,
+                    homeScore: "",
+                    awayScore: "",
+                    result: ""
+                }))
+            };
+
+            if (!state.gameweeks[compId]) state.gameweeks[compId] = [];
+            state.gameweeks[compId].push(newGameweek);
+
+            saveState();
+            onAdminCompChange();
+            document.getElementById('admin-gw-select').value = newGwId;
+            renderAdminMatches();
+            showToast(`Created new round '${gwName}'!`);
+        }
+
+        function addNewMatchToGameweek() {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwId = document.getElementById('admin-gw-select').value;
+            const activeGw = (state.gameweeks[compId] || []).find(g => g.id === gwId);
+
+            if (activeGw) {
+                const nextNum = activeGw.matches.length + 1;
+                activeGw.matches.push({
+                    matchNum: nextNum,
+                    date: "2026-09-20T15:00",
+                    homeTeam: "New Home Team",
+                    awayTeam: "New Away Team",
+                    oddsHome: 2.00,
+                    oddsDraw: 3.20,
+                    oddsAway: 2.50,
+                    homeScore: "",
+                    awayScore: "",
+                    result: ""
+                });
+                renderAdminMatches();
+            }
+        }
+
+        function removeAdminMatch(index) {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwId = document.getElementById('admin-gw-select').value;
+            const activeGw = (state.gameweeks[compId] || []).find(g => g.id === gwId);
+
+            if (activeGw && activeGw.matches[index]) {
+                activeGw.matches.splice(index, 1);
+                activeGw.matches.forEach((m, i) => m.matchNum = i + 1);
+                renderAdminMatches();
+            }
+        }
+
+        function updateGameweekDeadline() {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwId = document.getElementById('admin-gw-select').value;
+            const newDeadline = document.getElementById('admin-deadline-input').value;
+
+            const activeGw = (state.gameweeks[compId] || []).find(g => g.id === gwId);
+            if (activeGw) {
+                activeGw.deadline = newDeadline;
+                saveState();
+                showToast("Gameweek deadline saved!");
+            }
+        }
+
+        function saveAdminMatches() {
+            const compId = document.getElementById('admin-comp-select').value;
+            const gwId = document.getElementById('admin-gw-select').value;
+            const activeGw = (state.gameweeks[compId] || []).find(g => g.id === gwId);
+
+            if (!activeGw) return;
+
+            activeGw.matches.forEach((m, idx) => {
+                const hNameEl = document.getElementById(`admin-home-${idx}`);
+                const aNameEl = document.getElementById(`admin-away-${idx}`);
+                if (hNameEl) m.homeTeam = hNameEl.value;
+                if (aNameEl) m.awayTeam = aNameEl.value;
+
+                const o1El = document.getElementById(`admin-o1-${idx}`);
+                const oxEl = document.getElementById(`admin-ox-${idx}`);
+                const o2El = document.getElementById(`admin-o2-${idx}`);
+                if (o1El) m.oddsHome = parseFloat(o1El.value) || 1.00;
+                if (oxEl) m.oddsDraw = parseFloat(oxEl.value) || 1.00;
+                if (o2El) m.oddsAway = parseFloat(o2El.value) || 1.00;
+
+                const dateEl = document.getElementById(`admin-date-${idx}`);
+                if (dateEl) m.date = dateEl.value;
+
+                const hsEl = document.getElementById(`admin-hs-${idx}`);
+                const asEl = document.getElementById(`admin-as-${idx}`);
+                
+                const hsVal = hsEl ? hsEl.value.trim() : "";
+                const asVal = asEl ? asEl.value.trim() : "";
+
+                if (hsVal !== "" && asVal !== "") {
+                    const hs = parseInt(hsVal, 10);
+                    const as = parseInt(asVal, 10);
+                    if (!isNaN(hs) && !isNaN(as)) {
+                        m.homeScore = hs;
+                        m.awayScore = as;
+
+                        if (hs > as) {
+                            m.result = "1";
+                        } else if (as > hs) {
+                            m.result = "2";
+                        } else {
+                            m.result = "X";
+                        }
+                    }
+                } else {
+                    m.homeScore = "";
+                    m.awayScore = "";
+                    m.result = "";
+                }
+            });
+
+            saveState();
+            showToast("Gameweek matches & scores saved! Results recalculated.");
+        }
+
+        function handleCreateCompetition(e) {
+            e.preventDefault();
+            const title = document.getElementById('new-comp-title').value;
+            const season = document.getElementById('new-comp-season').value;
+
+            const newId = `comp-${Date.now()}`;
+            state.competitions.push({ id: newId, name: title, season });
+
+            state.gameweeks[newId] = [
+                {
+                    id: `gw-${Date.now()}-1`,
+                    name: "Week 1",
+                    deadline: "2026-09-20T12:00",
+                    matches: Array.from({ length: 12 }, (_, i) => ({
+                        matchNum: i + 1,
+                        date: "2026-09-20T15:00",
+                        homeTeam: `Team ${i * 2 + 1}`,
+                        awayTeam: `Team ${i * 2 + 2}`,
+                        oddsHome: 2.10,
+                        oddsDraw: 3.20,
+                        oddsAway: 2.80,
+                        homeScore: "",
+                        awayScore: "",
+                        result: ""
+                    }))
+                }
+            ];
+
+            document.getElementById('new-comp-title').value = '';
+            document.getElementById('new-comp-season').value = '';
+
+            saveState();
+            renderAdminView();
+            showToast("New competition created!");
+        }
+
+        function renderCompetitionsList() {
+            const container = document.getElementById('competitions-list');
+            container.innerHTML = '';
+
+            state.competitions.forEach(c => {
+                const gwCount = (state.gameweeks[c.id] || []).length;
+                const div = document.createElement('div');
+                div.className = "py-3 flex items-center justify-between";
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold text-white text-xs sm:text-sm">${c.name}</div>
+                        <div class="text-[10px] sm:text-xs text-slate-500">Season: ${c.season} | ID: ${c.id}</div>
+                    </div>
+                    <span class="text-[10px] sm:text-xs bg-slate-800 text-brand-400 border border-slate-700 px-2 sm:px-2.5 py-1 rounded-lg font-mono font-bold">${gwCount} Gameweek(s)</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function handleCreateUser(e) {
+            e.preventDefault();
+            const username = document.getElementById('new-user-username').value.trim();
+            const password = document.getElementById('new-user-password').value.trim();
+            const displayName = document.getElementById('new-user-display').value.trim();
+
+            if (state.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+                showToast("Username already exists!");
+                return;
+            }
+
+            state.users.push({
+                id: `u-${Date.now()}`,
+                username,
+                password,
+                displayName,
+                role: 'user'
+            });
+
+            document.getElementById('new-user-username').value = '';
+            document.getElementById('new-user-password').value = '';
+            document.getElementById('new-user-display').value = '';
+
+            saveState();
+            renderAdminUsers();
+            showToast(`User '${displayName}' registered successfully!`);
+        }
+
+        function renderAdminUsers() {
+            const tbody = document.getElementById('admin-users-table');
+            tbody.innerHTML = '';
+
+            state.users.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-mono text-slate-300">${u.username}</td>
+                    <td class="py-2.5 px-3 font-semibold text-white">${u.displayName}</td>
+                    <td class="py-2.5 px-3">
+                        <span class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded font-bold uppercase ${u.role === 'admin' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-slate-800 text-slate-400'}">${u.role}</span>
+                    </td>
+                    <td class="py-2.5 px-3 text-right">
+                        ${u.role !== 'admin' ? `<button onclick="deleteUser('${u.id}')" class="text-xs text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteUser(userId) {
+            state.users = state.users.filter(u => u.id !== userId);
+            saveState();
+            renderAdminUsers();
+            showToast("User removed.");
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
