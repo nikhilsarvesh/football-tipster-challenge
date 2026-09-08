@@ -471,6 +471,67 @@
 
     </main>
 
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-slate-900 bg-slate-950 py-4 px-4 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>© 2026 Nikhil S. Beersing. Football Tipster Challenge Platform.</p>
+            <button onclick="toggleLegalModal(true)" class="text-slate-400 hover:text-brand-400 underline transition text-xs flex items-center space-x-1.5">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Terms of Service & Data Protection</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Terms of Service & Data Protection Modal Component -->
+    <div id="legal-modal-backdrop" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-slate-800 text-slate-300">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 rounded-t-2xl">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-shield-halved text-brand-500 text-lg"></i>
+                    <h3 class="text-base sm:text-lg font-bold text-white">Terms of Service & Data Protection Notice</h3>
+                </div>
+                <button onclick="toggleLegalModal(false)" class="text-slate-400 hover:text-white font-bold text-xl leading-none transition">&times;</button>
+            </div>
+
+            <!-- Modal Scrollable Content -->
+            <div class="p-6 overflow-y-auto space-y-5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                <section class="space-y-1.5">
+                    <h4 class="font-bold text-white text-sm sm:text-base border-b border-slate-800 pb-1 text-brand-400">1. Purpose of Platform & Non-Gambling Policy</h4>
+                    <p>The <strong>Nikhil S. Beersing Football Tipster Challenge</strong> is a friendly point-tracking and prediction application designed purely for social competition and entertainment. This platform does <strong>NOT</strong> facilitate real-money gambling, sports wagering, or monetary payouts of any kind.</p>
+                </section>
+
+                <section class="space-y-1.5">
+                    <h4 class="font-bold text-white text-sm sm:text-base border-b border-slate-800 pb-1 text-brand-400">2. Scoring & Odds System</h4>
+                    <p>Decimal odds provided for each fixture (1, X, 2) serve strictly as a point multiplier system. Correct predictions earn leaderboard points equal to the odds value assigned to the winning match outcome. Round deadlines automatically lock predictions prior to kickoff.</p>
+                </section>
+
+                <section class="space-y-1.5">
+                    <h4 class="font-bold text-white text-sm sm:text-base border-b border-slate-800 pb-1 text-brand-400">3. Data Protection & Privacy Notice</h4>
+                    <p>We respect your privacy. In accordance with standard data protection principles:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                        <li><strong>Account Details:</strong> Usernames and display names are stored securely to maintain individual prediction cards and leaderboard rankings.</li>
+                        <li><strong>Predictions & Scores:</strong> Match selections and calculated points are synced across devices using an encrypted database connection.</li>
+                        <li><strong>Cloud Data Storage:</strong> Application data is securely managed via public cloud infrastructure (Supabase PostgreSQL) and cached locally in your browser (`localStorage`).</li>
+                    </ul>
+                </section>
+
+                <section class="space-y-1.5">
+                    <h4 class="font-bold text-white text-sm sm:text-base border-b border-slate-800 pb-1 text-brand-400">4. User Rights & Account Management</h4>
+                    <p>Users have the right to request access to or deletion of their registered tipster accounts and saved prediction data at any time by contacting the platform administrator.</p>
+                </section>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-end bg-slate-950/50 rounded-b-2xl">
+                <button onclick="toggleLegalModal(false)" class="bg-brand-600 hover:bg-brand-500 text-slate-950 font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition shadow-lg">
+                    I Understand & Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification Overlay -->
     <div id="toast" class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
         <div class="bg-brand-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 border border-brand-400">
@@ -1485,6 +1546,16 @@
             await saveState();
             renderAdminUsers();
             showToast("User removed.");
+        }
+
+        function toggleLegalModal(show) {
+            const modal = document.getElementById('legal-modal-backdrop');
+            if (!modal) return;
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
         }
 
         function showToast(message) {
