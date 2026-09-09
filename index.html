@@ -160,7 +160,7 @@
                     <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">PIN / Password</label>
                     <div class="relative">
                         <i class="fa-solid fa-key absolute left-3 top-3 text-slate-500 text-sm"></i>
-                        <input type="password" id="login-password" required placeholder="Enter PIN" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition">
+                        <input type="password" id="login-password" required maxlength="4" placeholder="4-character PIN" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition">
                     </div>
                 </div>
 
@@ -186,8 +186,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Set Password PIN</label>
-                    <input type="password" id="req-pin" required placeholder="PIN or Password (min 6 characters)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Set 4-Character PIN</label>
+                    <input type="password" id="req-pin" required minlength="4" maxlength="4" placeholder="4-character PIN" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition">
                 </div>
 
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-lg text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2">
@@ -603,7 +603,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Password PIN</label>
-                                <input type="password" id="admin-user-pin" placeholder="Min 6 characters" required class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg py-2 px-3 text-white">
+                                <input type="password" id="admin-user-pin" placeholder="4-character PIN" minlength="4" maxlength="4" required class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg py-2 px-3 text-white">
                             </div>
                             <div>
                                 <label class="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Account Role</label>
@@ -800,6 +800,16 @@
         // sessions, tokens) can be used under a familiar login form.
         function usernameToEmail(username) {
             return `${username.trim().toLowerCase()}@tipster.local`;
+        }
+
+        // Supabase Auth requires passwords to be at least 6 characters,
+        // even though the app's PINs are 4 — so a fixed suffix is appended
+        // behind the scenes before anything is sent to Supabase. The person
+        // never sees or types this; they only ever enter their 4-character
+        // PIN, here or at login.
+        const PIN_PAD = 'Tp$9Kq';
+        function pinToPassword(pin) {
+            return `${pin}${PIN_PAD}`;
         }
 
         function normalizeDB(parsed) {
@@ -1209,7 +1219,7 @@
 
             const { data, error } = await supabaseClient.auth.signInWithPassword({
                 email: usernameToEmail(uInput),
-                password: pInput
+                password: pinToPassword(pInput)
             });
 
             if (error || !data.session) {
@@ -1253,8 +1263,16 @@
             const dispName = document.getElementById('req-dispname').value.trim();
             const pin = document.getElementById('req-pin').value.trim();
 
-            if (!username || !pin) {
-                showToast("Username and PIN are required", "warning");
+            if (!username || !dispName || !pin) {
+                showToast("Username, Display Name and PIN are required", "warning");
+                return;
+            }
+            if (pin.length !== 4) {
+                showToast("PIN must be exactly 4 characters", "warning");
+                return;
+            }
+            if (allProfiles.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+                showToast("Username already exists", "error");
                 return;
             }
 
@@ -1266,7 +1284,7 @@
 
             const { data, error } = await tempClient.auth.signUp({
                 email: usernameToEmail(username),
-                password: pin
+                password: pinToPassword(pin)
             });
 
             if (error) {
@@ -2169,6 +2187,10 @@
                 showToast("Username and PIN are required", "warning");
                 return;
             }
+            if (pin.length !== 4) {
+                showToast("PIN must be exactly 4 characters", "warning");
+                return;
+            }
 
             if (allProfiles.some(u => u.username.toLowerCase() === username.toLowerCase())) {
                 showToast("Username already exists", "error");
@@ -2183,7 +2205,7 @@
 
             const { data, error } = await tempClient.auth.signUp({
                 email: usernameToEmail(username),
-                password: pin
+                password: pinToPassword(pin)
             });
 
             if (error) {
