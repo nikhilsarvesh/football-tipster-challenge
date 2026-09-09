@@ -797,9 +797,13 @@
         // Supabase Auth needs an email. Accounts are still "username + PIN"
         // from the person's point of view — this just maps the username to
         // a fake address behind the scenes so real Auth (hashed passwords,
-        // sessions, tokens) can be used under a familiar login form.
+        // sessions, tokens) can be used under a familiar login form. Note:
+        // Supabase Auth rejects "reserved/example" domains like .local,
+        // .test, .invalid and example.com as invalid — this domain must
+        // look like a normal, non-reserved one (no real mail is ever sent
+        // there since email confirmations are off).
         function usernameToEmail(username) {
-            return `${username.trim().toLowerCase()}@tipster.local`;
+            return `${username.trim().toLowerCase()}@ftc-tipster.app`;
         }
 
         // Supabase Auth requires passwords to be at least 6 characters,
