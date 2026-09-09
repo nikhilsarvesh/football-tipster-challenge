@@ -881,11 +881,22 @@
             clearTimeout(saveDebounceTimer);
             saveDebounceTimer = setTimeout(async () => {
                 try {
-                    const { error } = await supabaseClient.from('app_state').upsert({
-                        id: STATE_ROW_ID,
-                        data: db,
-                        updated_at: new Date().toISOString()
-                    });
+                    // A plain UPDATE (not upsert) on purpose: upsert() runs as
+                    // INSERT ... ON CONFLICT DO UPDATE under the hood, and
+                    // Postgres RLS checks the INSERT policy's WITH CHECK even
+                    // when the row already exists and only the UPDATE path
+                    // will ever actually run. Since app_state's INSERT policy
+                    // is admin-only (by design), that made every tipster's
+                    // save get rejected. The 'main' row always exists by the
+                    // time anyone is submitting predictions, so a plain
+                    // update only needs to satisfy the UPDATE policy, which
+                    // already allows any approved user.
+                    const { error } = await supabaseClient.from('app_state')
+                        .update({
+                            data: db,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', STATE_ROW_ID);
                     if (error) throw error;
                 } catch (e) {
                     console.error("Supabase save failed", e);
