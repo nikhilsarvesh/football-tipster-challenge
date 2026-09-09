@@ -187,7 +187,7 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Set Password PIN</label>
-                    <input type="password" id="req-pin" required placeholder="4-digit PIN or Password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition">
+                    <input type="password" id="req-pin" required placeholder="PIN or Password (min 6 characters)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition">
                 </div>
 
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-lg text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2">
@@ -603,7 +603,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Password PIN</label>
-                                <input type="password" id="admin-user-pin" placeholder="Numeric or Text PIN" required class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg py-2 px-3 text-white">
+                                <input type="password" id="admin-user-pin" placeholder="Min 6 characters" required class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg py-2 px-3 text-white">
                             </div>
                             <div>
                                 <label class="block text-[10px] text-slate-400 font-semibold uppercase mb-1">Account Role</label>
@@ -764,51 +764,202 @@
     <script>
         const STORAGE_KEY = 'nikhil_tipster_challenge_db_v4';
 
-        // Requirement 3: Updated Admin Username to 'Sarvesh05' and PIN to '1005'
+        // ---- Supabase setup ----
+        // Project URL + publishable (anon) key. Safe to keep client-side —
+        // that's how Supabase's anon key is designed to be used, access is
+        // controlled by the Row Level Security policies (and the trigger
+        // that validates writes) on the database side instead.
+        const SUPABASE_URL = 'https://ilrvrxqclvxefzdbdgfq.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_zygFnKtAIU4fiLHdIdmOrA_NKW5AyE9';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const STATE_ROW_ID = 'main';
+        let saveDebounceTimer = null;
+        let applyingRemoteUpdate = false;
+
+        // Real accounts now live in Supabase Auth + a `profiles` table, not
+        // in this blob. The shared blob only holds the actual tipster-game
+        // data: competitions, matches and everyone's predictions.
         const initialState = {
-            currentUser: null,
-            acceptedTermsUsers: [],
             competitions: [],
-            users: [
-                { id: 'u-admin-1', username: 'Sarvesh05', displayName: 'Administrator', pin: '1005', role: 'admin' }
-            ],
-            pendingRequests: [],
             matches: [],
             predictions: {}
         };
 
-        let db = loadDB();
+        let db = { ...initialState };
+        let allProfiles = [];       // cached rows from `profiles` — everyone's username/role/approval status
+        let currentUser = null;     // the logged-in person's own profile, or null — never synced to other browsers
         let currentDraftTips = {};
         let isEditModeActive = false;
         let leaderboardMode = 'weekly';
         let confirmResolver = null;
-        let pendingLoginUser = null;
+        let pendingLoginUser = null; // profile awaiting Terms acceptance mid-login
 
-        function loadDB() {
-            try {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    if (!parsed.pendingRequests) parsed.pendingRequests = [];
-                    if (!parsed.acceptedTermsUsers) parsed.acceptedTermsUsers = [];
-                    
-                    // Update fallback admin user if existing storage used previous default admin username
-                    const oldAdminIndex = parsed.users.findIndex(u => u.username === 'Admin');
-                    if (oldAdminIndex !== -1) {
-                        parsed.users[oldAdminIndex].username = 'Sarvesh05';
-                        parsed.users[oldAdminIndex].pin = '1005';
-                    }
-                    return parsed;
-                }
-            } catch (e) {
-                console.error("Failed to parse LocalStorage DB", e);
-            }
-            return initialState;
+        // Supabase Auth needs an email. Accounts are still "username + PIN"
+        // from the person's point of view — this just maps the username to
+        // a fake address behind the scenes so real Auth (hashed passwords,
+        // sessions, tokens) can be used under a familiar login form.
+        function usernameToEmail(username) {
+            return `${username.trim().toLowerCase()}@tipster.local`;
         }
 
+        function normalizeDB(parsed) {
+            if (!parsed.competitions) parsed.competitions = [];
+            if (!parsed.matches) parsed.matches = [];
+            if (!parsed.predictions) parsed.predictions = {};
+            return parsed;
+        }
+
+        // Loads the shared game state from Supabase (cloud), falling back to
+        // the last locally cached copy (or a fresh initial state) if the
+        // network request fails, so the app still works offline.
+        async function loadDB() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('app_state')
+                    .select('data')
+                    .eq('id', STATE_ROW_ID)
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                if (data && data.data && Object.keys(data.data).length > 0) {
+                    const parsed = normalizeDB(data.data);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                    return parsed;
+                }
+
+                // No row yet on Supabase — seed it with whatever we have locally.
+                const seed = normalizeDB(readLocalCache() || JSON.parse(JSON.stringify(initialState)));
+                await supabaseClient.from('app_state').upsert({
+                    id: STATE_ROW_ID,
+                    data: seed,
+                    updated_at: new Date().toISOString()
+                });
+                return seed;
+            } catch (e) {
+                console.error("Supabase load failed, falling back to local cache", e);
+                showToast("Couldn't reach cloud sync — using local data.", "warning");
+                return normalizeDB(readLocalCache() || JSON.parse(JSON.stringify(initialState)));
+            }
+        }
+
+        function readLocalCache() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                return stored ? JSON.parse(stored) : null;
+            } catch (e) {
+                console.error("Failed to parse local cache", e);
+                return null;
+            }
+        }
+
+        // Saves immediately to the local cache (so the UI never feels slow),
+        // then pushes to Supabase on a short debounce so rapid edits don't
+        // fire a network request per keystroke/click. The database enforces
+        // WHO is allowed to change WHAT (only admins can touch competitions
+        // or matches; a tipster can only touch their own predictions) — this
+        // function doesn't need to know or check that itself.
         function saveDB() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-            updatePendingBadges();
+
+            if (applyingRemoteUpdate) return; // don't echo remote changes back
+
+            clearTimeout(saveDebounceTimer);
+            saveDebounceTimer = setTimeout(async () => {
+                try {
+                    const { error } = await supabaseClient.from('app_state').upsert({
+                        id: STATE_ROW_ID,
+                        data: db,
+                        updated_at: new Date().toISOString()
+                    });
+                    if (error) throw error;
+                } catch (e) {
+                    console.error("Supabase save failed", e);
+                    showToast(e.message && e.message.includes('permission')
+                        ? "That change isn't allowed for your account."
+                        : "Cloud sync failed — changes saved locally only.", "error");
+                }
+            }, 400);
+        }
+
+        // Pulls the full list of accounts (username/display name/role/
+        // approval status — never PINs, those never leave Supabase Auth).
+        async function fetchProfiles() {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('id, username, display_name, role, approved, accepted_terms, created_at')
+                .order('created_at', { ascending: true });
+            if (error) {
+                console.error("Failed to load profiles", error);
+                return;
+            }
+            allProfiles = (data || []).map(p => ({
+                id: p.id,
+                username: p.username,
+                displayName: p.display_name,
+                role: p.role,
+                approved: p.approved,
+                acceptedTerms: p.accepted_terms,
+                createdAt: p.created_at
+            }));
+        }
+
+        // Restores whoever's browser session Supabase still remembers (e.g.
+        // after a page refresh) as this browser's logged-in user.
+        async function restoreSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { currentUser = null; return; }
+
+            const profile = allProfiles.find(p => p.id === session.user.id);
+            if (!profile || !profile.approved) {
+                if (profile && !profile.approved) await supabaseClient.auth.signOut();
+                currentUser = null;
+                return;
+            }
+            currentUser = profile;
+        }
+
+        // Live Sync: game data changed by someone else (new fixtures,
+        // results, other tipsters' picks) appears here without a refresh.
+        function subscribeToRemoteChanges() {
+            supabaseClient
+                .channel('app_state_changes')
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'app_state',
+                    filter: `id=eq.${STATE_ROW_ID}`
+                }, (payload) => {
+                    if (!payload.new || !payload.new.data) return;
+                    applyingRemoteUpdate = true;
+                    db = normalizeDB(payload.new.data);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+                    const activeView = ['predict', 'leaderboard', 'app-guide', 'admin', 'login']
+                        .find(v => !document.getElementById(`view-${v}`)?.classList.contains('hidden'));
+                    if (activeView) switchView(activeView);
+                    applyingRemoteUpdate = false;
+                })
+                .subscribe();
+        }
+
+        // Live Sync for accounts: new sign-up requests, approvals, and role
+        // changes made by an admin show up for everyone immediately.
+        function subscribeToProfileChanges() {
+            supabaseClient
+                .channel('profiles_changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
+                    await fetchProfiles();
+                    if (currentUser) {
+                        const fresh = allProfiles.find(p => p.id === currentUser.id);
+                        if (fresh) currentUser = fresh;
+                    }
+                    updateAuthUI();
+                    updatePendingBadges();
+                    const activeView = ['predict', 'leaderboard', 'app-guide', 'admin', 'login']
+                        .find(v => !document.getElementById(`view-${v}`)?.classList.contains('hidden'));
+                    if (activeView) switchView(activeView);
+                })
+                .subscribe();
         }
 
         function showToast(message, type = 'success') {
@@ -852,39 +1003,52 @@
             document.getElementById('terms-modal').classList.remove('hidden');
         }
 
-        function closeTermsModal() {
+        // viaAccept=true means the modal is closing because Terms were just
+        // accepted. If it closes any other way mid-login (the X button),
+        // the person hasn't agreed yet, so back their auth session out too —
+        // they aren't really "logged in" until they accept.
+        async function closeTermsModal(viaAccept = false) {
             document.getElementById('terms-modal').classList.add('hidden');
+            if (!viaAccept && pendingLoginUser) {
+                await supabaseClient.auth.signOut();
+                pendingLoginUser = null;
+                showToast("You need to accept the Terms to continue.", "warning");
+            }
         }
 
-        function acceptTermsAndClose() {
+        async function acceptTermsAndClose() {
+            const target = pendingLoginUser || currentUser;
+            if (!target) { closeTermsModal(true); return; }
+
+            const { error } = await supabaseClient.from('profiles')
+                .update({ accepted_terms: true })
+                .eq('id', target.id);
+
+            if (error) {
+                showToast("Couldn't save that — try again.", "error");
+                return;
+            }
+
+            target.acceptedTerms = true;
+            const cached = allProfiles.find(p => p.id === target.id);
+            if (cached) cached.acceptedTerms = true;
+
             if (pendingLoginUser) {
-                if (!db.acceptedTermsUsers.includes(pendingLoginUser.username)) {
-                    db.acceptedTermsUsers.push(pendingLoginUser.username);
-                }
-                db.currentUser = { 
-                    username: pendingLoginUser.username, 
-                    displayName: pendingLoginUser.displayName || pendingLoginUser.username, 
-                    role: pendingLoginUser.role 
-                };
-                saveDB();
-                updateAuthUI();
-                showToast(`Terms accepted! Welcome back, ${pendingLoginUser.displayName || pendingLoginUser.username}!`);
+                currentUser = pendingLoginUser;
                 pendingLoginUser = null;
-                closeTermsModal();
-                if (db.currentUser.role === 'admin') switchView('admin');
+                updateAuthUI();
+                showToast(`Terms accepted! Welcome back, ${currentUser.displayName || currentUser.username}!`);
+                closeTermsModal(true);
+                if (currentUser.role === 'admin') switchView('admin');
                 else switchView('predict');
             } else {
-                if (db.currentUser && !db.acceptedTermsUsers.includes(db.currentUser.username)) {
-                    db.acceptedTermsUsers.push(db.currentUser.username);
-                    saveDB();
-                }
-                closeTermsModal();
+                closeTermsModal(true);
                 showToast("Terms accepted.");
             }
         }
 
         function switchView(viewName) {
-            if (viewName === 'admin' && (!db.currentUser || db.currentUser.role !== 'admin')) {
+            if (viewName === 'admin' && (!currentUser || currentUser.role !== 'admin')) {
                 showToast("Admin credentials required. Please sign in as Admin.", "warning");
                 switchView('login');
                 return;
@@ -898,7 +1062,7 @@
                 const mobBtn = document.getElementById(`mobile-nav-${v}`);
 
                 if (v === 'admin') {
-                    const isAdmin = !!(db.currentUser && db.currentUser.role === 'admin');
+                    const isAdmin = !!(currentUser && currentUser.role === 'admin');
 
                     if (navBtn) {
                         navBtn.className = isAdmin
@@ -943,13 +1107,13 @@
             const mobileNavAdmin = document.getElementById('mobile-nav-admin');
             const mobileNavGrid = document.getElementById('mobile-nav-grid');
 
-            if (db.currentUser) {
+            if (currentUser) {
                 userBadge.classList.remove('hidden');
                 userBadge.classList.add('flex');
-                userNameDisplay.innerText = db.currentUser.displayName || db.currentUser.username;
-                userAvatar.innerText = db.currentUser.username.charAt(0).toUpperCase();
+                userNameDisplay.innerText = currentUser.displayName || currentUser.username;
+                userAvatar.innerText = currentUser.username.charAt(0).toUpperCase();
 
-                if (db.currentUser.role === 'admin') {
+                if (currentUser.role === 'admin') {
                     adminTag.classList.remove('hidden');
                     if (navAdmin) navAdmin.classList.remove('hidden');
                     if (mobileNavAdmin) {
@@ -984,13 +1148,13 @@
         }
 
         function updatePendingBadges() {
-            const count = (db.pendingRequests || []).length;
+            const count = allProfiles.filter(p => !p.approved).length;
             const desktopBadge = document.getElementById('nav-pending-badge');
             const mobileDot = document.getElementById('mobile-pending-dot');
             const tabBadge = document.getElementById('tab-approvals-badge');
             const tagCount = document.getElementById('pending-count-tag');
 
-            if (db.currentUser && db.currentUser.role === 'admin' && count > 0) {
+            if (currentUser && currentUser.role === 'admin' && count > 0) {
                 if (desktopBadge) { desktopBadge.innerText = count; desktopBadge.classList.remove('hidden'); }
                 if (mobileDot) mobileDot.classList.remove('hidden');
                 if (tabBadge) { tabBadge.innerText = count; tabBadge.classList.remove('hidden'); }
@@ -1022,10 +1186,10 @@
             }
         }
 
-        function handleAuthAction() {
-            if (db.currentUser) {
-                db.currentUser = null;
-                saveDB();
+        async function handleAuthAction() {
+            if (currentUser) {
+                await supabaseClient.auth.signOut();
+                currentUser = null;
                 updateAuthUI();
                 showToast("Logged out successfully");
                 switchView('predict');
@@ -1034,61 +1198,109 @@
             }
         }
 
-        function processLogin() {
+        async function processLogin() {
             const uInput = document.getElementById('login-username').value.trim();
             const pInput = document.getElementById('login-password').value.trim();
 
-            const found = db.users.find(u => u.username.toLowerCase() === uInput.toLowerCase() && u.pin === pInput);
-
-            if (found) {
-                if (!db.acceptedTermsUsers.includes(found.username)) {
-                    pendingLoginUser = found;
-                    openTermsModal();
-                    showToast("Please read and accept Terms & Conditions before starting.", "warning");
-                    return;
-                }
-
-                db.currentUser = { username: found.username, displayName: found.displayName || found.username, role: found.role };
-                saveDB();
-                updateAuthUI();
-                showToast(`Welcome back, ${found.displayName || found.username}!`);
-                document.getElementById('login-form').reset();
-
-                if (found.role === 'admin') switchView('admin');
-                else switchView('predict');
-            } else {
-                showToast("Invalid Username or PIN", "error");
+            if (!uInput || !pInput) {
+                showToast("Enter your username and PIN", "warning");
+                return;
             }
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: usernameToEmail(uInput),
+                password: pInput
+            });
+
+            if (error || !data.session) {
+                showToast("Invalid Username or PIN", "error");
+                return;
+            }
+
+            await fetchProfiles();
+            const found = allProfiles.find(p => p.id === data.user.id);
+
+            if (!found) {
+                await supabaseClient.auth.signOut();
+                showToast("Account not found — contact an admin.", "error");
+                return;
+            }
+
+            if (!found.approved) {
+                await supabaseClient.auth.signOut();
+                showToast("Your account is still pending Admin approval.", "warning");
+                return;
+            }
+
+            if (!found.acceptedTerms) {
+                pendingLoginUser = found;
+                openTermsModal();
+                showToast("Please read and accept Terms & Conditions before starting.", "warning");
+                return;
+            }
+
+            currentUser = found;
+            updateAuthUI();
+            showToast(`Welcome back, ${found.displayName || found.username}!`);
+            document.getElementById('login-form').reset();
+
+            if (found.role === 'admin') switchView('admin');
+            else switchView('predict');
         }
 
-        function submitAccountRequest() {
+        async function submitAccountRequest() {
             const username = document.getElementById('req-username').value.trim();
             const dispName = document.getElementById('req-dispname').value.trim();
             const pin = document.getElementById('req-pin').value.trim();
 
-            if (db.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-                showToast("Username already exists", "error");
+            if (!username || !pin) {
+                showToast("Username and PIN are required", "warning");
                 return;
             }
 
-            if ((db.pendingRequests || []).some(r => r.username.toLowerCase() === username.toLowerCase())) {
-                showToast("An account request for this username is already pending", "warning");
-                return;
-            }
-
-            if (!db.pendingRequests) db.pendingRequests = [];
-            db.pendingRequests.push({
-                id: 'req-' + Date.now(),
-                username,
-                displayName: dispName,
-                pin,
-                date: new Date().toISOString().split('T')[0]
+            // A throwaway client so this sign-up doesn't hijack the browser's
+            // existing session (e.g. if someone else is browsing logged in).
+            const tempClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: { persistSession: false, autoRefreshToken: false }
             });
 
-            saveDB();
+            const { data, error } = await tempClient.auth.signUp({
+                email: usernameToEmail(username),
+                password: pin
+            });
+
+            if (error) {
+                if (/registered|exists/i.test(error.message || '')) {
+                    showToast("Username already exists", "error");
+                } else {
+                    showToast(error.message || "Could not submit request", "error");
+                }
+                return;
+            }
+            if (!data.user) {
+                showToast("Could not submit request — try again.", "error");
+                return;
+            }
+
+            const { error: profileError } = await tempClient.from('profiles').insert({
+                id: data.user.id,
+                username,
+                display_name: dispName || username,
+                role: 'tipster',
+                approved: false
+            });
+
+            await tempClient.auth.signOut();
+
+            if (profileError) {
+                showToast("Could not submit request — try again.", "error");
+                return;
+            }
+
             showToast("Account request submitted! Pending Admin approval.");
             document.getElementById('register-req-form').reset();
             switchAuthTab('signin');
+            fetchProfiles();
         }
 
         function populateFilterDropdowns() {
@@ -1157,7 +1369,7 @@
                 return;
             }
 
-            const userTips = db.currentUser ? (db.predictions[db.currentUser.username] || {}) : {};
+            const userTips = currentUser ? (db.predictions[currentUser.username] || {}) : {};
 
             container.innerHTML = filteredMatches.map((match, matchIdx) => {
                 const savedPick = userTips[match.id];
@@ -1236,7 +1448,7 @@
         }
 
         function selectTip(matchId, outcome) {
-            if (!db.currentUser) {
+            if (!currentUser) {
                 showToast("Please log in to make predictions", "warning");
                 switchView('login');
                 return;
@@ -1251,7 +1463,7 @@
             const compId = document.getElementById('filter-competition').value;
             const gw = parseInt(document.getElementById('filter-gameweek').value);
             const activeMatches = db.matches.filter(m => m.compId === compId && m.gameweek === gw);
-            const userSaved = db.predictions[db.currentUser.username] || {};
+            const userSaved = db.predictions[currentUser.username] || {};
 
             let selectedCount = 0;
             activeMatches.forEach(m => {
@@ -1268,7 +1480,7 @@
 
         function updatePredictionBar(filteredMatches) {
             const totalInGW = filteredMatches ? filteredMatches.length : 0;
-            const userTips = db.currentUser ? (db.predictions[db.currentUser.username] || {}) : {};
+            const userTips = currentUser ? (db.predictions[currentUser.username] || {}) : {};
 
             let selectedInGW = 0;
             if (filteredMatches) {
@@ -1306,13 +1518,13 @@
         }
 
         function savePredictions(isAutoSave = false) {
-            if (!db.currentUser) {
+            if (!currentUser) {
                 showToast("Please log in to save predictions", "warning");
                 switchView('login');
                 return;
             }
 
-            const username = db.currentUser.username;
+            const username = currentUser.username;
             if (!db.predictions[username]) db.predictions[username] = {};
 
             Object.assign(db.predictions[username], currentDraftTips);
@@ -1365,7 +1577,7 @@
             const selectedGW = parseInt(gwFilter.value || gws[0]);
 
             // Public leaderboard: administrators are intentionally excluded.
-            const leaderboardUsers = db.users.filter(user => user.role !== 'admin');
+            const leaderboardUsers = allProfiles.filter(user => user.role !== 'admin' && user.approved);
 
             const userScores = leaderboardUsers.map(user => {
                 let points = 0;
@@ -1412,7 +1624,7 @@
                 if (idx === 1) rankBadge = `<i class="fa-solid fa-medal text-slate-300 text-base" title="2nd Place - Silver"></i>`;
                 if (idx === 2) rankBadge = `<i class="fa-solid fa-award text-amber-600 text-base" title="3rd Place - Bronze"></i>`;
 
-                const isCurrent = db.currentUser && db.currentUser.username === u.username;
+                const isCurrent = currentUser && currentUser.username === u.username;
 
                 return `
                     <tr class="hover:bg-slate-700/40 transition ${isCurrent ? 'bg-emerald-950/30 border-l-4 border-emerald-500' : ''}">
@@ -1453,7 +1665,7 @@
             const now = new Date();
             const firstDeadline = new Date(matches[0].deadline);
 
-            if (now < firstDeadline && (!db.currentUser || db.currentUser.role !== 'admin')) {
+            if (now < firstDeadline && (!currentUser || currentUser.role !== 'admin')) {
                 modalContent.innerHTML = `
                     <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 p-4 rounded-xl text-center space-y-1">
                         <i class="fa-solid fa-lock text-xl mb-1"></i>
@@ -1776,7 +1988,7 @@
 
         function renderPendingApprovals() {
             const listEl = document.getElementById('admin-approvals-list');
-            const requests = db.pendingRequests || [];
+            const requests = allProfiles.filter(p => !p.approved);
 
             if (requests.length === 0) {
                 listEl.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No pending account approval requests.</p>`;
@@ -1790,7 +2002,7 @@
                             ${r.displayName}
                             <span class="text-slate-400 font-mono text-xs">(@${r.username})</span>
                         </div>
-                        <p class="text-[11px] text-slate-400 mt-0.5">PIN: <span class="font-mono text-emerald-400">${r.pin}</span> | Requested: ${r.date}</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Requested: ${r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</p>
                     </div>
 
                     <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -1805,27 +2017,33 @@
             `).join('');
         }
 
-        function approveRequest(reqId) {
-            const req = (db.pendingRequests || []).find(r => r.id === reqId);
-            if (!req) return;
+        async function approveRequest(profileId) {
+            const { error } = await supabaseClient.from('profiles')
+                .update({ approved: true })
+                .eq('id', profileId);
 
-            db.users.push({
-                id: 'u-' + Date.now(),
-                username: req.username,
-                displayName: req.displayName,
-                pin: req.pin,
-                role: 'tipster'
-            });
+            if (error) { showToast("Couldn't approve that account.", "error"); return; }
 
-            db.pendingRequests = db.pendingRequests.filter(r => r.id !== reqId);
-            saveDB();
-            showToast(`User @${req.username} approved! Account created.`);
+            await fetchProfiles();
+            showToast("Tipster approved! They can now log in.");
             renderPendingApprovals();
         }
 
-        function rejectRequest(reqId) {
-            db.pendingRequests = (db.pendingRequests || []).filter(r => r.id !== reqId);
-            saveDB();
+        // Supabase Auth accounts can't be fully deleted from the browser
+        // (that needs the private service-role key, never exposed client-
+        // side). Rejecting removes their profile so they never appear as a
+        // tipster; note the login itself still exists, so if they try to
+        // re-apply with the same username they'll see "already exists" —
+        // an admin can fully remove it from the Supabase dashboard under
+        // Authentication → Users if that ever comes up.
+        async function rejectRequest(profileId) {
+            const { error } = await supabaseClient.from('profiles')
+                .delete()
+                .eq('id', profileId);
+
+            if (error) { showToast("Couldn't reject that account.", "error"); return; }
+
+            await fetchProfiles();
             showToast("Request rejected.");
             renderPendingApprovals();
         }
@@ -1942,25 +2160,58 @@
             }
         }
 
-        function registerUser() {
+        async function registerUser() {
             const username = document.getElementById('admin-user-name').value.trim();
             const pin = document.getElementById('admin-user-pin').value.trim();
             const role = document.getElementById('admin-user-role').value;
 
-            if (db.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+            if (!username || !pin) {
+                showToast("Username and PIN are required", "warning");
+                return;
+            }
+
+            if (allProfiles.some(u => u.username.toLowerCase() === username.toLowerCase())) {
                 showToast("Username already exists", "error");
                 return;
             }
 
-            db.users.push({
-                id: 'u-' + Date.now(),
-                username,
-                displayName: username,
-                pin,
-                role
+            // A throwaway client so creating this account doesn't replace
+            // the admin's own logged-in session in this browser.
+            const tempClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: { persistSession: false, autoRefreshToken: false }
             });
 
-            saveDB();
+            const { data, error } = await tempClient.auth.signUp({
+                email: usernameToEmail(username),
+                password: pin
+            });
+
+            if (error) {
+                showToast(error.message || "Could not create account", "error");
+                return;
+            }
+            if (!data.user) {
+                showToast("Could not create account — try again.", "error");
+                return;
+            }
+
+            const { error: profileError } = await tempClient.from('profiles').insert({
+                id: data.user.id,
+                username,
+                display_name: username,
+                role,
+                approved: true,
+                accepted_terms: true
+            });
+
+            await tempClient.auth.signOut();
+
+            if (profileError) {
+                showToast("Could not create account — try again.", "error");
+                return;
+            }
+
+            await fetchProfiles();
             showToast(`User @${username} created as ${role}!`);
             document.getElementById('admin-user-name').value = '';
             document.getElementById('admin-user-pin').value = '';
@@ -1969,18 +2220,18 @@
 
         function renderAdminUsers() {
             const listEl = document.getElementById('admin-users-list');
-            listEl.innerHTML = db.users.map(u => `
+            listEl.innerHTML = allProfiles.map(u => `
                 <div class="bg-slate-900 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between text-xs">
                     <div>
                         <span class="font-bold text-white">${u.displayName || u.username}</span>
                         <span class="text-[10px] text-slate-400 font-mono ml-1">(@${u.username})</span>
                         <span class="text-[9px] ${u.role === 'admin' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-700 text-slate-300'} px-1.5 py-0.2 rounded font-mono ml-2 uppercase">${u.role}</span>
+                        ${!u.approved ? `<span class="text-[9px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-1.5 py-0.2 rounded font-mono ml-1 uppercase">Revoked</span>` : ''}
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-[10px] font-mono text-emerald-400">PIN: ${u.pin}</span>
-                        ${u.username !== 'Sarvesh05' ? `
-                            <button onclick="confirmDeleteUser('${u.id}')" class="text-rose-400 hover:text-rose-300 text-xs ml-1">
-                                <i class="fa-solid fa-trash"></i>
+                        ${currentUser && u.id !== currentUser.id ? `
+                            <button onclick="confirmToggleUserAccess('${u.id}', ${u.approved})" class="text-[10px] font-semibold ${u.approved ? 'text-rose-400 hover:text-rose-300' : 'text-emerald-400 hover:text-emerald-300'} ml-1">
+                                ${u.approved ? '<i class="fa-solid fa-ban"></i> Revoke' : '<i class="fa-solid fa-rotate-left"></i> Restore'}
                             </button>
                         ` : ''}
                     </div>
@@ -1988,22 +2239,38 @@
             `).join('');
         }
 
-        async function confirmDeleteUser(userId) {
-            const user = db.users.find(u => u.id === userId);
+        // Real login credentials live in Supabase Auth, which can only be
+        // hard-deleted with the private service-role key (never put in
+        // client-side code). Revoking flips their profile to unapproved,
+        // which blocks login immediately — functionally the same outcome
+        // for this app, without exposing a dangerous key in the browser.
+        async function confirmToggleUserAccess(userId, currentlyApproved) {
+            const user = allProfiles.find(u => u.id === userId);
             if (!user) return;
 
-            const ok = await openConfirmModal("Delete User Account", `Are you sure you want to delete user @${user.username}?`);
-            if (ok) {
-                db.users = db.users.filter(u => u.id !== userId);
-                saveDB();
-                showToast("User account removed.");
-                renderAdminUsers();
-            }
+            const action = currentlyApproved ? 'Revoke Access' : 'Restore Access';
+            const ok = await openConfirmModal(action, `Are you sure you want to ${currentlyApproved ? 'revoke' : 'restore'} access for @${user.username}?`);
+            if (!ok) return;
+
+            const { error } = await supabaseClient.from('profiles')
+                .update({ approved: !currentlyApproved })
+                .eq('id', userId);
+
+            if (error) { showToast("That change wasn't allowed.", "error"); return; }
+
+            await fetchProfiles();
+            showToast(currentlyApproved ? "Access revoked." : "Access restored.");
+            renderAdminUsers();
         }
 
-        window.onload = function() {
+        window.onload = async function() {
+            db = await loadDB();
+            await fetchProfiles();
+            await restoreSession();
             updateAuthUI();
             switchView('predict');
+            subscribeToRemoteChanges();
+            subscribeToProfileChanges();
         };
     </script>
 </body>
